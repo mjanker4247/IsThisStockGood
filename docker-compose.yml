@@ -1,0 +1,20 @@
+services: 
+  isthisstockgood: 
+    build: . 
+    container_name: isthisstockgood 
+    restart: unless-stopped 
+    expose: 
+      - "8080" # Exposed internally for Nginx/Traefik
+    networks: 
+      - www2-backend # attach to backend network (shared with Nginx) 
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=production
+      - FLASK_RUN_HOST=0.0.0.0
+      - FLASK_RUN_PORT=8080
+      - FLASK_DEBUG=True
+      
+networks:
+  # Reuse existing external network created by Nginx/Traefik
+  www2-backend: 
+    external: true

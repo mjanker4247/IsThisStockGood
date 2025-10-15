@@ -1,0 +1,38 @@
+# Ignore Git metadata
+.git 
+.gitignore
+# Ignore local Python build artifacts
+__pycache__/ 
+*.pyc 
+*.pyo 
+*.pyd 
+*.pdb 
+*.egg-info/ 
+*.eggs/ 
+build/ 
+dist/
+# Ignore local environment files
+.env 
+.venv/ 
+venv/ 
+ENV/
+# Ignore IDE/editor files
+.vscode/ 
+.idea/ 
+*.swp 
+*.swo 
+*.bak
+# Ignore OS-generated files
+.DS_Store 
+Thumbs.db
+# Ignore test caches
+.coverage 
+.pytest_cache/
+# Ignore logs, data, and temporary files
+*.log 
+*.csv 
+*.tmp 
+*.json 
+data/ 
+cache/ 
+notebooks/
