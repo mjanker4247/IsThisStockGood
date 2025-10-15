@@ -1,5 +1,8 @@
 {
   "ticker" : "{{ ticker }}",
+  "identifier" : "{{ identifier }}",
+  "identifier_type" : "{{ identifier_type }}",
+  "identifier_resolution_succeeded" : {{ identifier_resolution_succeeded | tojson }},
   "name" : "{{ name }}",
   "description": "{{ description }}",
   "roic" : {{ roic }},

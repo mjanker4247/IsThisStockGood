@@ -5,6 +5,7 @@ from requests_futures.sessions import FuturesSession
 from isthisstockgood.Active.MSNMoney import MSNMoney
 from isthisstockgood.Active.YahooFinance import YahooFinanceAnalysis
 from isthisstockgood.Active.Zacks import Zacks
+from isthisstockgood.IdentifierResolver import resolve_identifier
 from threading import Lock
 
 logger = logging.getLogger("IsThisStockGood")
@@ -37,7 +38,14 @@ def fetchDataForTickerSymbol(ticker):
   if not ticker:
     return None
 
-  data_fetcher = DataFetcher(ticker)
+  resolution = resolve_identifier(ticker)
+  if resolution.identifier_type == "isin" and not resolution.successful:
+    logger.warning("Unable to resolve ISIN %s to a ticker symbol", ticker)
+    return None
+
+  resolved_ticker = resolution.symbol
+
+  data_fetcher = DataFetcher(resolved_ticker)
 
   # Make all network request asynchronously to build their portion of
   # the json results.
@@ -70,7 +78,10 @@ def fetchDataForTickerSymbol(ticker):
   computed_free_cash_flow = round(free_cash_flow_per_share * msn_money.shares_outstanding)
   ten_cap_price = 10 * free_cash_flow_per_share
   template_values = {
-    'ticker' : ticker,
+    'ticker' : msn_money.ticker_symbol if msn_money and msn_money.ticker_symbol else resolved_ticker,
+    'identifier' : resolution.input_identifier,
+    'identifier_type' : resolution.identifier_type,
+    'identifier_resolution_succeeded' : resolution.successful,
     'name' : msn_money.name if msn_money and msn_money.name else 'null',
     'description': msn_money.description if msn_money and msn_money.description else 'null',
     'roic': msn_money.roic_averages if msn_money and msn_money.roic_averages else [],
