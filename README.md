@@ -53,6 +53,31 @@ python3 -m pip install .
 python3 main.py
 ```
 
+### Runtime configuration
+
+The application can be configured through environment variables, which is useful
+when running behind a proxy such as **nginx** or in a Docker service.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ISG_HOST` | `0.0.0.0` | Network interface for the Flask development server. |
+| `ISG_PORT` | `8080` | Port for the Flask development server. |
+| `ISG_DEBUG` | `false` | Enables Flask debug mode when set to a truthy value (`1`, `true`, `yes`, etc.). |
+| `ISG_REDIRECT_URL` | `https://isthisstockgood.com` | Target URL for legacy App Engine redirects (set empty to disable). |
+| `ISG_REDIRECT_HOST_SUFFIX` | `.appspot.com` | Host suffix that triggers a redirect to `ISG_REDIRECT_URL`. |
+| `ISG_ENABLE_REDIRECT` | `true` | Toggle for redirect behaviour; set to `false` to serve responses directly. |
+
+Example Docker invocation:
+
+```
+docker run -p 8080:8080 \
+  -e ISG_HOST=0.0.0.0 \
+  -e ISG_PORT=8080 \
+  -e ISG_DEBUG=false \
+  -e ISG_ENABLE_REDIRECT=false \
+  your-image-name
+```
+
 ## Deploying the site
 
 If you haven't already, install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)

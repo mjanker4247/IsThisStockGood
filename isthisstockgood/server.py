@@ -1,6 +1,7 @@
 import logging
+import os
 from datetime import date
-from flask import Flask, request, render_template, json
+from flask import Flask, request, render_template, json, redirect
 
 
 def get_logger():
@@ -16,8 +17,35 @@ def get_logger():
 
     return logger
 
+def _as_bool(value, default=False):
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
 def create_app(fetchDataForTickerSymbol):
     app = Flask(__name__)
+
+    app.config.setdefault("ISG_REDIRECT_URL", os.environ.get("ISG_REDIRECT_URL", "https://isthisstockgood.com"))
+    app.config.setdefault("ISG_REDIRECT_HOST_SUFFIX", os.environ.get("ISG_REDIRECT_HOST_SUFFIX", ".appspot.com"))
+    app.config.setdefault(
+        "ISG_ENABLE_REDIRECT",
+        _as_bool(os.environ.get("ISG_ENABLE_REDIRECT"), default=True),
+    )
+
+    def maybe_redirect():
+        redirect_url = app.config.get("ISG_REDIRECT_URL")
+        redirect_suffix = app.config.get("ISG_REDIRECT_HOST_SUFFIX")
+        redirect_enabled = app.config.get("ISG_ENABLE_REDIRECT", True)
+
+        if redirect_enabled and redirect_url and redirect_suffix and request.host.endswith(redirect_suffix):
+            return redirect(redirect_url, code=302)
+
+        return None
 
     @app.route('/api/ticker/nvda')
     def api_ticker():
@@ -45,8 +73,9 @@ def create_app(fetchDataForTickerSymbol):
 
     @app.route('/')
     def homepage():
-      if request.environ['HTTP_HOST'].endswith('.appspot.com'):  #Redirect the appspot url to the custom url
-        return '<meta http-equiv="refresh" content="0; url=https://isthisstockgood.com" />'
+      redirect_response = maybe_redirect()
+      if redirect_response:
+        return redirect_response
 
       template_values = {
         'page_title' : "Is This Stock Good?",
@@ -56,8 +85,9 @@ def create_app(fetchDataForTickerSymbol):
 
     @app.route('/search', methods=['POST'])
     def search():
-      if request.environ['HTTP_HOST'].endswith('.appspot.com'):  #Redirect the appspot url to the custom url
-        return '<meta http-equiv="refresh" content="0; url=http://isthisstockgood.com" />'
+      redirect_response = maybe_redirect()
+      if redirect_response:
+        return redirect_response
 
       ticker = request.values.get('ticker')
       template_values = fetchDataForTickerSymbol(ticker)
