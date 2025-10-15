@@ -1,5 +1,9 @@
 import json
+import logging
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
+
+
+logger = logging.getLogger("IsThisStockGood")
 
 
 
@@ -13,7 +17,8 @@ class MSNMoney:
   KEY_RATIOS_YEAR_SPAN = 5
 
   def __init__(self, ticker_symbol):
-    self.ticker_symbol = ticker_symbol.replace('.', '')
+    self.ticker_symbol = ticker_symbol
+    self._normalized_symbols = self._build_symbol_variations(ticker_symbol)
     self.name = ''
     self.description = ''
     self.industry = ''
@@ -52,11 +57,29 @@ class MSNMoney:
 
   def extract_stock_id(self, content):
     data = json.loads(content)
-    for ticker in data.get('data', {}).get('stocks', []):
+    stocks = data.get('data', {}).get('stocks', [])
+    fallback = None
+
+    for ticker in stocks:
       js = json.loads(ticker)
-      if js.get('RT00S', '').upper() == self.ticker_symbol.upper():
+      if fallback is None and js.get('SecId'):
+        fallback = js
+
+      candidate = js.get('RT00S') or js.get('Ticker') or ''
+      if self._matches_symbol(candidate):
         self.description = js.get('Description', '')
+        self.ticker_symbol = candidate or self.ticker_symbol
         return js.get('SecId', '')
+
+    if fallback:
+      logger.warning(
+        "Falling back to the first MSN Money search result for ticker %s", self.ticker_symbol
+      )
+      self.description = fallback.get('Description', '')
+      candidate = fallback.get('RT00S') or fallback.get('Ticker')
+      if candidate:
+        self.ticker_symbol = candidate
+      return fallback.get('SecId', '')
 
 
   def parse_quotes_data(self, content):
@@ -117,6 +140,28 @@ class MSNMoney:
     self.last_year_net_income =  ttm_eps * self.shares_outstanding
     
     return True
+
+  def _matches_symbol(self, symbol):
+    if not symbol:
+      return False
+    return self._normalize_symbol(symbol) in self._normalized_symbols
+
+  def _build_symbol_variations(self, symbol):
+    normalized = set()
+    normalized.add(self._normalize_symbol(symbol))
+
+    stripped = symbol.replace('.', '').replace('-', '')
+    normalized.add(self._normalize_symbol(stripped))
+
+    if '.' in symbol:
+      normalized.add(self._normalize_symbol(symbol.split('.')[0]))
+    if '-' in symbol:
+      normalized.add(self._normalize_symbol(symbol.split('-')[0]))
+
+    return {item for item in normalized if item}
+
+  def _normalize_symbol(self, symbol):
+    return str(symbol).replace('.', '').replace('-', '').upper()
 
 
   def _parse_company_metrics(self, json_data):
