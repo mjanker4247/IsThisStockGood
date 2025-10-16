@@ -1,5 +1,10 @@
+"""Data extraction helpers for the MSN Money data source."""
+
 import json
 import logging
+import os
+from typing import Optional
+
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
 
 
@@ -8,16 +13,17 @@ logger = logging.getLogger("IsThisStockGood")
 
 
 class MSNMoney:
-  # This key appears to be fixed? So we can use it for now /shrug
-  _API_KEY = '0QfOX3Vn51YCzitbLaRkTTBadtWpgTN8NZLW0C1SEM'
   TICKER_URL = 'https://services.bingapis.com/contentservices-finance.csautosuggest/api/v1/Query?query={}&market=en-us'
   KEY_RATIOS_URL = 'https://services.bingapis.com/contentservices-finance.financedataservice/api/v1/KeyRatios?stockId={}'
   ANNUAL_STATEMENTS_URL = 'https://assets.msn.com/service/Finance/Equities?apikey={}&ids={}&wrapodata=false'
   QUOTES_URL = 'https://assets.msn.com/service/Finance/Quotes?apikey={}&ids={}&wrapodata=false'
   KEY_RATIOS_YEAR_SPAN = 5
 
-  def __init__(self, ticker_symbol):
+  def __init__(self, ticker_symbol: str, *, api_key: Optional[str] = None):
     self.ticker_symbol = ticker_symbol
+    self._api_key = (api_key or os.getenv("ISG_MSN_MONEY_API_KEY", "")).strip()
+    if not self._api_key:
+      raise ValueError("MSN Money API key is not configured")
     self._normalized_symbols = self._build_symbol_variations(ticker_symbol)
     self.name = ''
     self.description = ''
@@ -50,10 +56,10 @@ class MSNMoney:
     return self.KEY_RATIOS_URL.format(stock_id)
   
   def get_quotes_url(self, stock_id):
-    return self.QUOTES_URL.format(self._API_KEY, stock_id)
-  
+    return self.QUOTES_URL.format(self._api_key, stock_id)
+
   def get_annual_statements_url(self, stock_id):
-    return self.ANNUAL_STATEMENTS_URL.format(self._API_KEY, stock_id)
+    return self.ANNUAL_STATEMENTS_URL.format(self._api_key, stock_id)
 
   def extract_stock_id(self, content):
     data = json.loads(content)

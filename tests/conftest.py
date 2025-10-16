@@ -44,6 +44,8 @@ def offline_data_fetcher(monkeypatch: pytest.MonkeyPatch, test_data_manager: Tes
     """Patch asynchronous fetchers to use static payloads for repeatable tests."""
 
     def _apply() -> None:
+        monkeypatch.setenv("ISG_MSN_MONEY_API_KEY", "test-key")
+
         def fake_fetch_msn_money_data(self: DataFetcher) -> None:
             self.msn_money = MSNMoney(self.ticker_symbol)
             autocomplete_payload = test_data_manager.load_text("msn_autocomplete.json")
