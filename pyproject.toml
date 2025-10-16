@@ -5,7 +5,7 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.8,<4.0"
 authors = [
-  { name = "Mark Klara" }
+  { name = "Marco Janker and AI" }
 ]
 dependencies = [
   "requests-futures>=1.0.1,<2.0.0",
