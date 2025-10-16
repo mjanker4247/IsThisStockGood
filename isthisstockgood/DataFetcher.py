@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import random
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
@@ -169,12 +170,39 @@ def _calculate_payback_time(
 ) -> Optional[float]:
     """Estimate the payback time for the equity using Rule #1 methodology."""
 
-    if not one_year_equity_growth_rate or not last_year_net_income or not market_cap or not analyst_five_year_growth_rate:
+    def _is_missing(value: object) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, float):
+            return math.isnan(value)
+        if isinstance(value, int):
+            return False
+        if isinstance(value, str):
+            return not value.strip()
+        return False
+
+    if any(
+        _is_missing(value)
+        for value in (
+            one_year_equity_growth_rate,
+            last_year_net_income,
+            market_cap,
+            analyst_five_year_growth_rate,
+        )
+    ):
         return None
 
     growth_rate = _calculate_growth_rate_decimal(analyst_five_year_growth_rate, one_year_equity_growth_rate)
-    payback_time = RuleOne.payback_time(market_cap, last_year_net_income, growth_rate)
-    return payback_time
+    try:
+        return RuleOne.payback_time(market_cap, last_year_net_income, growth_rate)
+    except ValueError:
+        logger.warning(
+            "Unable to compute payback time with market cap=%s, income=%s, growth=%s",
+            market_cap,
+            last_year_net_income,
+            growth_rate,
+        )
+        return None
 
 
 class DataFetcher:

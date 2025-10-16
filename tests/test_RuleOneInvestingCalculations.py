@@ -63,6 +63,18 @@ class RuleOneInvestingCalculationsTest(unittest.TestCase):
     years = RuleOne.payback_time(1000, 100, 0)
     self.assertEqual(years, 10)
 
+  def test_payback_time_immediate_return(self):
+    years = RuleOne.payback_time(5000, 10000, 0.05)
+    self.assertEqual(years, 1)
+
+  def test_payback_time_accepts_string_inputs(self):
+    years = RuleOne.payback_time("17680", "2115", "0.12")
+    self.assertEqual(years, 6)
+
+  def test_payback_time_handles_tiny_growth_rate(self):
+    years = RuleOne.payback_time(1_000_000, 75_000, 1e-9)
+    self.assertEqual(years, math.ceil(1_000_000 / 75_000))
+
   def test_payback_time_invalid(self):
     with self.assertRaises(ValueError):
       RuleOne.payback_time(17680, 2115, -0.12)
