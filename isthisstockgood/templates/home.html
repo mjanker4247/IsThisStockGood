@@ -14,10 +14,5 @@
   {% include "payback_time.html" %}
   {% include "ten_cap.html" %}
   {% include "market_cap.html" %}
-  <script>
-    // Initialize all popover elements for the Bootstrap plugin.
-    $(document).ready(function(){
-      $('[data-toggle="popover"]').popover({ trigger: "hover", container: 'body' });
-    });
-  </script>
+  <script src="{{ url_for('static', filename='js/home.js') }}" defer></script>
 {% endblock %}

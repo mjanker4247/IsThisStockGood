@@ -18,6 +18,20 @@ StockDataFetcher = Callable[[str], Optional[Mapping[str, Any]]]
 INVALID_TICKER_MESSAGE = "Invalid ticker symbol"
 TICKER_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9.-]{0,9}$")
 
+CSP_DIRECTIVES = (
+    "default-src 'self'",
+    "script-src 'self' https://ajax.googleapis.com https://cdnjs.cloudflare.com "
+    "https://cdn.rawgit.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net",
+    "style-src 'self' https://fonts.googleapis.com https://unpkg.com https://cdn.rawgit.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+)
+
 
 def create_app(
     fetch_data_for_ticker: StockDataFetcher,
@@ -148,7 +162,7 @@ def create_app(
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("Permissions-Policy", "geolocation=()")
-        response.headers.setdefault("Content-Security-Policy", "default-src 'self'")
+        response.headers.setdefault("Content-Security-Policy", "; ".join(CSP_DIRECTIVES))
         response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
         if request.scheme == "https":
             response.headers.setdefault(
