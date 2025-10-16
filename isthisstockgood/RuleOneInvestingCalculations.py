@@ -91,7 +91,7 @@ def max_position_size(share_price, trade_volume):
   """
   Returns the limits for a position size for a given stock. These are the
   value to limit your position below to make sure you can buy in or sell out of
-  a stock without caushing an artifical price change.
+  a stock without causing an artifical price change.
 
   This boils down to 1% of the volume or 1% of the price of the volume.
 
