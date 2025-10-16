@@ -1,26 +1,31 @@
-# Agent Instructions
+# Agent Guidelines
 
-These guidelines apply to the entire repository.
+These instructions apply to the entire repository.
 
 ## Project Overview
-- The codebase is a Python 3.8+ Flask service with supporting data-processing utilities.
-- Prefer incremental, well-tested changes that keep existing CLI scripts and HTTP handlers functional.
+- The project is a Python 3.8+ Flask service with supporting data-processing utilities.
+- Code is managed with Poetry; always update `pyproject.toml`/`poetry.lock` together when dependency changes are required.
 
 ## Coding Standards
-- Follow PEP 8 conventions and Python typing best practices where practical; honor repository-specific pylint settings (2-space indentation, disabled message categories).
-- Keep business logic pure and side-effect free when possible; isolate I/O (HTTP, file, network) to dedicated helper modules.
-- Maintain compatibility with the configured dependencies in `pyproject.toml` and avoid introducing new packages without necessity.
+- Follow PEP 8 and prefer type hints on new or modified functions.
+- The repository uses two-space indentation; respect existing formatting and avoid introducing unused imports.
+- Keep business logic pure and deterministic where practical, isolating I/O into helper modules.
+- Do not wrap imports in try/except blocks.
 
 ## Testing & Quality
-- Always run the full unit test suite: `poetry run pytest`.
-- Add or update tests alongside code changes that affect functionality.
-- For Flask endpoints, include integration-style tests under `tests/` when altering request/response behavior.
-- Run `poetry run pylint isthisstockgood` and address warnings that fall outside the disabled categories.
+- Run the full suite with `poetry run pytest` when modifying code or tests. Skip tests only for documentation-only changes.
+- Add or update tests under `tests/` to cover new functionality, including integration-style tests for Flask endpoints.
+- When feasible, run `poetry run pylint isthisstockgood` and address actionable warnings.
 
 ## Documentation
-- Update README or module docstrings when behavior or usage changes.
-- Keep comments concise, actionable, and up to date with the implementation.
+- Update README files, inline comments, or docstrings when behavior or configuration changes.
+- Keep comments concise, accurate, and aligned with the implementation.
 
-## Git & Review
-- Keep commits focused; include descriptive messages summarizing the change.
-- Highlight any security-sensitive modifications and document mitigation steps in the PR description.
+## Git & Review Process
+- Keep commits focused with descriptive messages summarizing the change.
+- Surface security-relevant changes and mitigation steps in commit/PR descriptions.
+- Ensure the working tree is clean before finishing your task.
+
+## Operational Notes
+- Avoid committing secrets or credentials; rely on configuration or environment variables.
+- Prefer incremental, well-tested changes that maintain compatibility with existing CLI scripts and HTTP handlers.
