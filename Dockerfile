@@ -7,8 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 # Copy the full app into the container
 COPY . .
-# Install Python dependencies
-RUN python -m pip install .
+# Install Python dependencies using uv
+RUN python -m pip install --no-cache-dir uv \
+    && uv pip install --system .
 # Expose the web port
 EXPOSE 8080
 # Default command: run the Flask web service

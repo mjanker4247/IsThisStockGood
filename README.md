@@ -30,27 +30,20 @@ This repository contains a script to iteratively issue a bulk fetch and populate
 
 ## Install dependencies
 
-### Poetry
+### uv
 
-On windows:
-
-1. Install `pipx` with `py -m pip install --user pipx`.
-2. Go to the path in "WARNING: The script pipx.exe is installed in `<USER folder>\AppData\Roaming\Python\Python3x\Scripts` which is not on "PATH". Once in this path execute: `.\pipx.exe ensurepath`
-3. Install poetry with: `pipx install poetry`
-4. In the repo path for IsThisStockGood, run `poetry install`
-5. Install the `export` command addon: `poetry self add poetry-plugin-export`
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) using your preferred method (for example `pipx install uv` or `curl -LsSf https://astral.sh/install.sh | sh`).
+2. From the repository root, run `uv sync` to create and populate the managed virtual environment.
+3. (Optional) Activate the environment with `source .venv/bin/activate` or rely on `uv run` to execute commands inside it.
 
 ## Running the site locally.
 
 1. Clone the repo.
 2. Install python3, if you haven't already.
-3. Run the following command to install the dependencies:
+3. Install the dependencies with `uv sync`.
+4. Run the application with:
 ```
-python3 -m pip install .
-```
-4. Run the `main.py` with:
-```
-python3 main.py
+uv run python main.py
 ```
 
 ### Runtime configuration
@@ -83,13 +76,13 @@ docker run -p 8080:8080 \
 The automated test suite can be executed with:
 
 ```
-pytest
+uv run pytest
 ```
 
 To capture line coverage data without relying on third-party plugins, run:
 
 ```
-tools/run_tests_with_coverage.py
+uv run tools/run_tests_with_coverage.py
 ```
 
 The coverage helper leverages Python's built-in tracing facilities and writes raw execution
