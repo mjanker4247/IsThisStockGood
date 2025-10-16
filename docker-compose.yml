@@ -10,9 +10,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - FLASK_ENV=production
-      - FLASK_RUN_HOST=0.0.0.0
-      - FLASK_RUN_PORT=8080
-      - FLASK_DEBUG=True
+      - ISG_HOST=0.0.0.0
+      - ISG_PORT=8080
+      - ISG_DEBUG=True
       
 networks:
   # Reuse existing external network created by Nginx/Traefik
