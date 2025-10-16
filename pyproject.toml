@@ -16,6 +16,10 @@ virtualenv = "^20.26.6"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.1"
 
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
