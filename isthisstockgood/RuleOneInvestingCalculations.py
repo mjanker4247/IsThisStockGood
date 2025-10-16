@@ -125,8 +125,10 @@ def payback_time(market_cap, net_income, estimated_growth_rate):
 
   Returns:
     Returns the number of years (rounded up) for how many years are needed to
-    receive a 100% return on your investment based on the company's income. If
-    any of the inputs are invalid, returns -1.
+    receive a 100% return on your investment based on the company's income.
+
+  Raises:
+    ValueError: If any of the inputs are invalid.
   """
   market_cap_value = _ensure_positive(market_cap, "market_cap")
   net_income_value = _ensure_positive(net_income, "net_income")
@@ -134,17 +136,24 @@ def payback_time(market_cap, net_income, estimated_growth_rate):
   if growth_rate_value < 0:
     raise ValueError("estimated_growth_rate must be greater than or equal to 0.")
 
-  yearly_income = net_income_value
-  total_payback = 0
-  years = 0
-  while total_payback < market_cap_value:
-    yearly_income += yearly_income * growth_rate_value
-    total_payback += yearly_income
-    years += 1
-    if years > 10_000:
-      raise ValueError("Payback period did not converge within a reasonable timeframe.")
+  if math.isclose(growth_rate_value, 0.0, abs_tol=1e-12):
+    return math.ceil(market_cap_value / net_income_value)
 
-  return years
+  growth_multiplier = 1.0 + growth_rate_value
+  if not math.isfinite(growth_multiplier):
+    raise ValueError("estimated_growth_rate produced a non-finite multiplier.")
+
+  numerator = 1.0 + (market_cap_value * growth_rate_value) / (
+    net_income_value * growth_multiplier
+  )
+  if numerator <= 0 or not math.isfinite(numerator):
+    raise ValueError("Unable to compute payback period with the provided inputs.")
+
+  years = math.log(numerator, growth_multiplier)
+  if not math.isfinite(years):
+    raise ValueError("Unable to compute payback period with the provided inputs.")
+
+  return max(1, math.ceil(years))
 
 
 def margin_of_safety_price(current_eps, estimated_growth_rate,
