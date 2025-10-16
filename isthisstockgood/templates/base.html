@@ -1,12 +1,16 @@
-<html xmlns="http://www.w3.org/1999/xhtml">
-	<head>
-		{% include "header.html" %}
-	</head>
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    {% include "header.html" %}
+  </head>
 
-	<body>
-		{% block bodycontent %}
-		{% endblock %}
+  <body class="d-flex flex-column min-vh-100">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    {% block loading %}{% endblock %}
+    <main id="main-content" class="flex-fill" role="main">
+      {% block bodycontent %}{% endblock %}
+    </main>
 
-		{% include "footer.html" %}
-	</body>
+    {% include "footer.html" %}
+  </body>
 </html>
