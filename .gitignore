@@ -26,6 +26,12 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# --- uv-specific ---
+.uv/                # uv’s cache and environment data
+.venv/              # local virtual environment (if uv manages one)
+.uv.lock            # optional: only ignore if you regenerate lockfiles automatically
+
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -372,6 +378,10 @@ dist
 old/
 requirements.txt
 .envrc
+.cursor/
+
+# Optional pyenv local version file
+.python-version
 
 # Temporary files
 *.tmp
