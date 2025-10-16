@@ -244,7 +244,12 @@ class DataFetcher:
     def fetch_msn_money_data(self) -> None:
         """Start the asynchronous workflow to download MSN Money datasets."""
 
-        self.msn_money = MSNMoney(self.ticker_symbol)
+        try:
+            self.msn_money = MSNMoney(self.ticker_symbol)
+        except ValueError:
+            logger.error("MSN Money API key is not configured; skipping MSN Money fetch for %s", self.ticker_symbol)
+            self.msn_money = None
+            return
         session = self._create_session()
         rpc = session.get(
             self.msn_money.get_ticker_autocomplete_url(),
