@@ -23,7 +23,7 @@ def compound_annual_growth_rate(start_balance, end_balance, years):
     result = round((pow(difference, exponent) - 1.0) * 100 , 2)
   else:  # One, and only one, of the numbers is negative
     # We can't really calculate a real growth rate for these cases, so let's double
-    # an approximateion to have something to show.
+    # an approximation to have something to show.
     if start_balance < end_balance:  # start_balance is negative
       difference = (end_balance - (2.0 * start_balance)) / (-1.0 * start_balance)
     else:  # end_balance is negative
@@ -54,7 +54,7 @@ def max_position_size(share_price, trade_volume):
   """
   Returns the limits for a position size for a given stock. These are the
   value to limit your position below to make sure you can buy in or sell out of
-  a stock without caushing an artifical price change.
+  a stock without causing an artifical price change.
 
   This boils down to 1% of the volume or 1% of the price of the volume.
 
