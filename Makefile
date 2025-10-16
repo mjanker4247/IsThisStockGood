@@ -23,10 +23,8 @@ run:
 test:
 	uv run pytest
 
-docker-build:
+docker-run:
 	docker compose build
-
-docker-up:
 	docker compose up -d
 
 docker-down:
