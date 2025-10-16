@@ -3,19 +3,19 @@
 These instructions apply to the entire repository.
 
 ## Project Overview
-- The project is a Python 3.8+ Flask service with supporting data-processing utilities.
-- Code is managed with Poetry; always update `pyproject.toml`/`poetry.lock` together when dependency changes are required.
+- The project is a Python 3.8+ Flask service with data-processing utilities.
+- Dependencies are managed with **uv**. When dependency changes are required, update `pyproject.toml` and regenerate the lock data via `uv lock`.
 
 ## Coding Standards
 - Follow PEP 8 and prefer type hints on new or modified functions.
-- The repository uses two-space indentation; respect existing formatting and avoid introducing unused imports.
-- Keep business logic pure and deterministic where practical, isolating I/O into helper modules.
-- Do not wrap imports in try/except blocks.
+- Use four-space indentation in Python files and avoid introducing unused imports.
+- Keep business logic pure and deterministic when practical, isolating I/O into helper modules.
+- Do not wrap imports in `try`/`except` blocks.
 
 ## Testing & Quality
-- Run the full suite with `poetry run pytest` when modifying code or tests. Skip tests only for documentation-only changes.
+- Run the full suite with `uv run pytest` whenever code or tests change. Skip tests only for documentation-only updates.
 - Add or update tests under `tests/` to cover new functionality, including integration-style tests for Flask endpoints.
-- When feasible, run `poetry run pylint isthisstockgood` and address actionable warnings.
+- When feasible, run `uv run pylint isthisstockgood` and address actionable warnings.
 
 ## Documentation
 - Update README files, inline comments, or docstrings when behavior or configuration changes.
