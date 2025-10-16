@@ -32,6 +32,8 @@
 
             const message = window.appendChild(document.createElement("span"));
             message.setAttribute("class", "text");
+            message.setAttribute("role", "status");
+            message.setAttribute("aria-live", "polite");
             message.textContent = ( this.dataset.message ? this.dataset.message : "Loading" );
 
             const style = document.createElement("style");

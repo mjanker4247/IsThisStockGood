@@ -10,33 +10,43 @@
   </div>
   <div class="row pt-3 justify-content-center">
     <div class="col">
-      <table class="table table-bordered text-center">
-        <thead class="thead-light">
-          <tr id="debt_title_labels">
-            <th>Long term debt</th>
-            <th>Free cash flow</th>
-            <th>Years to pay off debt</th>
-          </tr>
-        </thead>
-        <tr>
-          <td id="total_debt">-</td>
-          <td id="free_cash_flow">-</td>
-          <td id="debt_payoff_time">-</td>
-       </tr>
-      </table>
+      <div class="table-responsive">
+        <table class="table table-bordered text-center">
+          <caption class="sr-only">Cash flow and debt metrics</caption>
+          <thead class="thead-light">
+            <tr id="debt_title_labels">
+              <th scope="col">Long term debt</th>
+              <th scope="col">Free cash flow</th>
+              <th scope="col">Years to pay off debt</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="total_debt">-</td>
+              <td id="free_cash_flow">-</td>
+              <td id="debt_payoff_time">-</td>
+           </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="col">
-      <table class="table table-bordered text-center">
-        <tr id="debt_equity_title_label">
+      <div class="table-responsive">
+        <table class="table table-bordered text-center">
+          <caption class="sr-only">Debt to equity ratio</caption>
           <thead class="thead-light">
-            <th>Debt-to-Equity Ratio (Most recent quarter)</th>
+            <tr id="debt_equity_title_label">
+              <th scope="col">Debt-to-Equity Ratio (Most recent quarter)</th>
+            </tr>
           </thead>
-          <td id="debt_equity_ratio">
-            -
-          </td>
-        </tr>
-      </table>
+          <tbody>
+            <tr>
+              <td id="debt_equity_ratio">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

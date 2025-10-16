@@ -1,11 +1,107 @@
 <link rel="shortcut icon" href="../img/favicon.ico" type="image/x-icon" />
 <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
 <meta content="utf-8" http-equiv="encoding">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{page_title}}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700|Material+Icons">
 <link rel="stylesheet" href="https://unpkg.com/bootstrap-material-design@4.1.1/dist/css/bootstrap-material-design.min.css" integrity="sha384-wXznGJNEXNG1NFsbm0ugrLFMQPWswR3lds2VeinahP8N0zJw9VWSopbjv2x7WCvX" crossorigin="anonymous">
 <link rel='stylesheet prefetch' href='https://cdn.rawgit.com/FezVrasta/snackbarjs/1.1.0/dist/snackbar.min.css'>
+<style>
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f5f6f8;
+  }
+
+  .section-heading {
+    font-weight: 600;
+    letter-spacing: 0.04rem;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: -999px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    z-index: -999;
+  }
+
+  .skip-link:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    background-color: #ffc107;
+    color: #212529;
+    z-index: 1000;
+  }
+
+  .chart-wrapper {
+    position: relative;
+    min-height: 320px;
+  }
+
+  .chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .nopadding {
+    padding: 0 !important;
+  }
+
+  .form-helper-text {
+    font-size: 0.9rem;
+  }
+
+  #searchboxform .btn {
+    width: 100%;
+  }
+
+  #searchboxform .spinner-border {
+    vertical-align: middle;
+  }
+
+  .table-responsive {
+    margin-bottom: 1rem;
+  }
+
+  .table thead th {
+    text-transform: uppercase;
+    font-size: 0.85rem;
+  }
+
+  .card {
+    border: none;
+    border-radius: 0.75rem;
+  }
+
+  @media (max-width: 767.98px) {
+    body {
+      font-size: 0.95rem;
+    }
+
+    .lead {
+      font-size: 1rem;
+    }
+
+    .btn-lg {
+      font-size: 1rem;
+      padding: 0.75rem 1rem;
+    }
+
+    .table thead th {
+      font-size: 0.75rem;
+    }
+  }
+</style>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js" integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4" crossorigin="anonymous"></script>
 <script src="https://cdn.rawgit.com/FezVrasta/snackbarjs/1.1.0/dist/snackbar.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
