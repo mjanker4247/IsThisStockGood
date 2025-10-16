@@ -8,7 +8,7 @@ WORKDIR /app
 # Copy the full app into the container
 COPY . .
 # Install Python dependencies
-RUN python -m pip install --no-cache-dir .
+RUN python -m pip install .
 # Expose the web port
 EXPOSE 8080
 # Default command: run the Flask web service
