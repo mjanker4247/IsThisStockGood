@@ -27,7 +27,21 @@ def fetch_data_for_ticker_symbol(
     user_agents: Sequence[str] | None = None,
     session_factory: FuturesSessionFactory | None = None,
 ) -> Optional[Dict[str, Any]]:
-    """Fetch and parse financial data for ``ticker``."""
+    """Fetch and parse all financial data for ``ticker``.
+
+    Args:
+        ticker: The identifier that should be resolved into a tradable ticker symbol.
+        user_agents: Optional list of user agent strings to randomize outbound requests.
+        session_factory: Optional callable that creates ``FuturesSession`` instances.
+
+    Returns:
+        A fully-populated dictionary of processed financial metrics for ``ticker`` or
+        ``None`` when the ticker cannot be resolved or upstream data sources fail.
+
+    The resulting dictionary mirrors the structure used in the original implementation
+    so templates and clients can continue to rely on keys such as ``roic``, ``eps``,
+    ``equity``, ``margin_of_safety_price``, ``ten_cap_price``, and ``payback_time``.
+    """
 
     if not ticker:
         return None
@@ -45,10 +59,14 @@ def fetch_data_for_ticker_symbol(
         session_factory=session_factory,
     )
 
+    # Kick off all remote requests concurrently so downstream parsing happens without
+    # blocking on individual endpoints.
     data_fetcher.fetch_msn_money_data()
     data_fetcher.fetch_yahoo_finance_analysis()
     data_fetcher.fetch_zacks_analysis()
 
+    # Ensure every async request has completed before we attempt to read the parsed
+    # payloads, mirroring the synchronization semantics of the legacy implementation.
     for rpc in data_fetcher.rpcs:
         rpc.result()
 
@@ -60,6 +78,8 @@ def fetch_data_for_ticker_symbol(
         logger.error("MSN Money data unavailable for ticker %s", resolved_ticker)
         return None
 
+    # NOTE: Some equities—particularly newly listed or thinly covered tickers—do not
+    # expose analyst growth rates. Fall back to Zacks data or zero just like before.
     five_year_growth_rate = (
         yahoo_finance_analysis.five_year_growth_rate if yahoo_finance_analysis
         else zacks_analysis.five_year_growth_rate if zacks_analysis
@@ -112,7 +132,10 @@ def fetch_data_for_ticker_symbol(
 
 
 def _calculate_growth_rate_decimal(analyst_growth_rate: float, current_growth_rate: float) -> float:
+    """Convert the lower of the analyst and trailing growth rates into a decimal."""
+
     growth_rate = min(float(analyst_growth_rate), float(current_growth_rate))
+    # Divide the growth rate by 100 to convert from percent to decimal.
     return growth_rate / 100.0
 
 
@@ -123,6 +146,8 @@ def _calculate_margin_of_safety_price(
     ttm_eps: float,
     analyst_five_year_growth_rate: float,
 ) -> Tuple[Optional[float], Optional[float]]:
+    """Compute the Rule #1 margin of safety and sticker price for the current ticker."""
+
     if not one_year_equity_growth_rate or not pe_low or not pe_high or not ttm_eps or not analyst_five_year_growth_rate:
         return None, None
 
@@ -142,6 +167,8 @@ def _calculate_payback_time(
     market_cap: float,
     analyst_five_year_growth_rate: float,
 ) -> Optional[float]:
+    """Estimate the payback time for the equity using Rule #1 methodology."""
+
     if not one_year_equity_growth_rate or not last_year_net_income or not market_cap or not analyst_five_year_growth_rate:
         return None
 
@@ -151,7 +178,7 @@ def _calculate_payback_time(
 
 
 class DataFetcher:
-    """A helper class that synchronizes all of the async data fetches."""
+    """Coordinate asynchronous fetching and parsing for a single ticker symbol."""
 
     def __init__(
         self,
@@ -160,6 +187,14 @@ class DataFetcher:
         user_agents: Sequence[str] | None = None,
         session_factory: FuturesSessionFactory | None = None,
     ) -> None:
+        """Initialize a new ``DataFetcher`` instance.
+
+        Args:
+            ticker: The resolved ticker symbol to fetch.
+            user_agents: Optional list of HTTP user agent strings used for requests.
+            session_factory: Optional callable returning a ``FuturesSession``.
+        """
+
         self.rpcs: list[Any] = []
         self.ticker_symbol = ticker
         self.msn_money: Optional[MSNMoney] = None
@@ -172,11 +207,15 @@ class DataFetcher:
         self._session_factory: FuturesSessionFactory = session_factory or FuturesSession
 
     def _create_session(self) -> FuturesSession:
+        """Build a session with a randomized user agent header."""
+
         session = self._session_factory()
         session.headers.update({"User-Agent": random.choice(self._user_agents)})
         return session
 
     def fetch_msn_money_data(self) -> None:
+        """Start the asynchronous workflow to download MSN Money datasets."""
+
         self.msn_money = MSNMoney(self.ticker_symbol)
         session = self._create_session()
         rpc = session.get(
@@ -187,6 +226,8 @@ class DataFetcher:
         self.rpcs.append(rpc)
 
     def continue_fetching_msn_money_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
+        """Chain additional MSN Money requests once the stock identifier is known."""
+
         msn_stock_id = self.msn_money.extract_stock_id(response.text)
         session = self._create_session()
         rpc = session.get(
@@ -209,6 +250,8 @@ class DataFetcher:
         self.rpcs.append(rpc)
 
     def parse_msn_money_ratios_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
+        """Parse the ratios dataset returned from MSN Money."""
+
         if response.status_code != 200:
             return
         if not self.msn_money:
@@ -217,6 +260,8 @@ class DataFetcher:
         self.msn_money.parse_ratios_data(result)
 
     def parse_msn_money_quotes_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
+        """Parse the quotes dataset returned from MSN Money."""
+
         if response.status_code != 200:
             return
         if not self.msn_money:
@@ -225,6 +270,8 @@ class DataFetcher:
         self.msn_money.parse_quotes_data(result)
 
     def parse_msn_money_annual_statement_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
+        """Parse the annual statement dataset returned from MSN Money."""
+
         if response.status_code != 200:
             return
         if not self.msn_money:
@@ -233,6 +280,8 @@ class DataFetcher:
         self.msn_money.parse_annual_report_data(result)
 
     def fetch_yahoo_finance_analysis(self) -> None:
+        """Start the asynchronous Yahoo Finance analyst analysis fetch."""
+
         self.yahoo_finance_analysis = YahooFinanceAnalysis(self.ticker_symbol)
         session = self._create_session()
         rpc = session.get(
@@ -243,6 +292,8 @@ class DataFetcher:
         self.rpcs.append(rpc)
 
     def parse_yahoo_finance_analysis(self, response: Response, *args: Any, **kwargs: Any) -> None:
+        """Parse Yahoo Finance analyst projections and drop invalid payloads."""
+
         if response.status_code != 200:
             return
         if not self.yahoo_finance_analysis:
@@ -253,6 +304,8 @@ class DataFetcher:
             self.yahoo_finance_analysis = None
 
     def fetch_zacks_analysis(self) -> None:
+        """Start the asynchronous Zacks analyst analysis fetch."""
+
         session = self._create_session()
         self.zacks_analysis = Zacks(self.ticker_symbol)
 
@@ -264,6 +317,8 @@ class DataFetcher:
         self.rpcs.append(rpc)
 
     def parse_growth_rate_estimate(self, response: Response, *args: Any, **kwargs: Any) -> None:
+        """Parse supplemental Zacks growth rate data."""
+
         if response.status_code != 200:
             return
         if not self.zacks_analysis:
@@ -274,6 +329,8 @@ class DataFetcher:
             self.zacks_analysis = None
 
     def fetch_yahoo_finance_chart(self) -> None:
+        """Start the asynchronous Yahoo Finance chart fetch."""
+
         self.yahoo_finance_chart = YahooFinanceChart(self.ticker_symbol)
         session = self._create_session()
         rpc = session.get(
@@ -284,6 +341,8 @@ class DataFetcher:
         self.rpcs.append(rpc)
 
     def parse_yahoo_finance_chart(self, response: Response, *args: Any, **kwargs: Any) -> None:
+        """Parse the historical price chart data from Yahoo Finance."""
+
         if response.status_code != 200:
             return
         if not self.yahoo_finance_chart:

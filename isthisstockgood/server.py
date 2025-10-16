@@ -17,7 +17,16 @@ def create_app(
     config: AppConfig | None = None,
     logger: logging.Logger | None = None,
 ) -> Flask:
-    """Create and configure the Flask application."""
+    """Create and configure the Flask application.
+
+    Args:
+        fetch_data_for_ticker: Callable used to retrieve stock data dictionaries.
+        config: Optional application configuration to override environment defaults.
+        logger: Optional logger instance shared across the application.
+
+    Returns:
+        A fully-configured :class:`flask.Flask` instance ready to serve requests.
+    """
 
     resolved_config = config or AppConfig.from_environ(os.environ)
     resolved_logger = logger or configure_logger(resolved_config.logger_name, resolved_config.log_level)

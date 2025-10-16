@@ -9,7 +9,15 @@ from typing import Mapping, Sequence
 
 
 def _as_bool(value: object, default: bool = False) -> bool:
-    """Convert ``value`` into a boolean."""
+    """Convert ``value`` into a boolean.
+
+    Args:
+        value: The potential boolean value supplied via configuration.
+        default: The fallback value when ``value`` is ``None``.
+
+    Returns:
+        ``True`` or ``False`` depending on the interpreted string or native bool.
+    """
 
     if value is None:
         return default
@@ -21,7 +29,15 @@ def _as_bool(value: object, default: bool = False) -> bool:
 
 
 def _parse_user_agents(value: str | None, default: Sequence[str]) -> Sequence[str]:
-    """Parse the configured list of HTTP user agents."""
+    """Parse the configured list of HTTP user agents.
+
+    Args:
+        value: Raw JSON string from configuration specifying user agents.
+        default: Fallback sequence to use when ``value`` is empty.
+
+    Returns:
+        A tuple of user agent strings suitable for HTTP requests.
+    """
 
     if not value:
         return tuple(default)
@@ -38,7 +54,15 @@ def _parse_user_agents(value: str | None, default: Sequence[str]) -> Sequence[st
 
 
 def _parse_log_level(value: str | None, default: int) -> int:
-    """Parse the configured log level."""
+    """Parse the configured log level.
+
+    Args:
+        value: Raw log level name (e.g. ``"INFO"``) from configuration.
+        default: Fallback numeric level when ``value`` is empty.
+
+    Returns:
+        The numeric logging level constant understood by :mod:`logging`.
+    """
 
     if not value:
         return default
@@ -51,7 +75,15 @@ def _parse_log_level(value: str | None, default: int) -> int:
 
 
 def configure_logger(name: str, level: int) -> logging.Logger:
-    """Create or configure an application wide logger."""
+    """Create or configure an application wide logger.
+
+    Args:
+        name: The logger name to create or reuse.
+        level: The minimum log level that should be emitted.
+
+    Returns:
+        A configured :class:`logging.Logger` instance with a stream handler attached.
+    """
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -91,7 +123,14 @@ class AppConfig:
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str]) -> "AppConfig":
-        """Create configuration from ``environ`` values."""
+        """Create configuration from ``environ`` values.
+
+        Args:
+            environ: Environment mapping, typically :data:`os.environ`.
+
+        Returns:
+            A fully-populated :class:`AppConfig` instance with parsed overrides.
+        """
 
         host = environ.get("ISG_HOST", cls.host)
         port_value = environ.get("ISG_PORT")
