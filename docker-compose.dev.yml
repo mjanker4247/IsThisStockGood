@@ -1,0 +1,20 @@
+services:
+  isthisstockgood:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: isthisstockgood-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=development
+      - ISG_HOST=0.0.0.0
+      - ISG_PORT=8080
+      - ISG_DEBUG=True
+      - ISG_ENABLE_REDIRECT=false
+    volumes:
+      - .:/app
+    command: ["uv", "run", "python", "main.py"]
+

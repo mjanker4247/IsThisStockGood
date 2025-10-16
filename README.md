@@ -43,7 +43,8 @@ This repository contains a script to iteratively issue a bulk fetch and populate
 3. Install the dependencies with `uv sync`.
 4. Run the application with:
 ```
-uv run python main.py
+make install
+make run
 ```
 
 ### Runtime configuration
@@ -76,7 +77,7 @@ docker run -p 8080:8080 \
 The automated test suite can be executed with:
 
 ```
-uv run pytest
+make test
 ```
 
 To capture line coverage data without relying on third-party plugins, run:
@@ -103,3 +104,25 @@ If you already have an initialized repository, then simply run
 ```
 gcloud app deploy app.yaml
 ```
+
+### Docker-based workflows
+
+- **Production compose (server)**
+  - On the server in your repo directory:
+    - `make docker-build`
+    - `make docker-up`
+- **Dev compose with live code mount**
+  - Locally:
+    - `make dev-up`
+    - `make dev-logs`
+    - `make dev-down`
+
+### One-command remote deploy via SSH
+
+From your local machine:
+
+```
+tools/deploy_via_ssh.sh user@your.host /path/to/IsThisStockGood
+```
+
+This will: `git reset --hard origin/master`, `docker compose build --pull`, `docker compose up -d`, and prune old images.
