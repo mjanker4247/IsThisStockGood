@@ -78,6 +78,23 @@ docker run -p 8080:8080 \
   your-image-name
 ```
 
+## Testing
+
+The automated test suite can be executed with:
+
+```
+pytest
+```
+
+To capture line coverage data without relying on third-party plugins, run:
+
+```
+tools/run_tests_with_coverage.py
+```
+
+The coverage helper leverages Python's built-in tracing facilities and writes raw execution
+artifacts to `coverage_report/` while printing a human-readable summary to the console.
+
 ## Deploying the site
 
 If you haven't already, install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
