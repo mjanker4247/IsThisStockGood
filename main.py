@@ -1,28 +1,22 @@
 """Application entry point for the IsThisStockGood service."""
 
-import os
+from __future__ import annotations
 
-from isthisstockgood.DataFetcher import fetchDataForTickerSymbol
+import os
+from functools import partial
+
+from isthisstockgood.DataFetcher import fetch_data_for_ticker_symbol
+from isthisstockgood.config import AppConfig, configure_logger
 from isthisstockgood.server import create_app
 
 
-def _as_bool(value, default=False):
-    """Convert a value from the environment into a boolean."""
-    if value is None:
-        return default
+APP_CONFIG = AppConfig.from_environ(os.environ)
+LOGGER = configure_logger(APP_CONFIG.logger_name, APP_CONFIG.log_level)
 
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
-
+fetcher = partial(fetch_data_for_ticker_symbol, user_agents=APP_CONFIG.user_agents)
 
 # Expose `app` object at the module level, as expected by App Engine
-app = create_app(fetchDataForTickerSymbol)
+app = create_app(fetcher, config=APP_CONFIG, logger=LOGGER)
 
 if __name__ == '__main__':
-    host = os.environ.get('ISG_HOST', '0.0.0.0')
-    port = int(os.environ.get('ISG_PORT', '8080'))
-    debug = _as_bool(os.environ.get('ISG_DEBUG'), default=False)
-
-    app.run(host=host, port=port, debug=debug)
+    app.run(host=APP_CONFIG.host, port=APP_CONFIG.port, debug=APP_CONFIG.debug)
