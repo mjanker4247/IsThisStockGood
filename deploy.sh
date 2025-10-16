@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-poetry export --without-hashes -f requirements.txt -o requirements.txt
+uv pip compile pyproject.toml -o requirements.txt
 gcloud app deploy app.yaml

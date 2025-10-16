@@ -1,5 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-virtualenv flask
-source flask/Scripts/activate
-python3 main.py
+uv sync
+uv run python main.py
