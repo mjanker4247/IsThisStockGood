@@ -1,8 +1,28 @@
 """A collection of functions to compute investing calculations from Rule #1."""
 
 from __future__ import division
+
 import math
-#import numpy as np
+
+
+def _ensure_numeric(value, name):
+  """Validate that *value* can be represented as a float."""
+  if value is None:
+    raise ValueError(f"{name} must not be None.")
+  try:
+    return float(value)
+  except (TypeError, ValueError):
+    raise ValueError(f"{name} must be a numeric value.")
+
+
+def _ensure_positive(value, name, allow_zero=False):
+  """Validate that *value* is positive (or zero when allowed)."""
+  numeric_value = _ensure_numeric(value, name)
+  if allow_zero and numeric_value == 0:
+    return numeric_value
+  if numeric_value <= 0:
+    raise ValueError(f"{name} must be greater than 0.")
+  return numeric_value
 
 
 def compound_annual_growth_rate(start_balance, end_balance, years):
@@ -11,27 +31,27 @@ def compound_annual_growth_rate(start_balance, end_balance, years):
 
   Formula = (end/start)^(1/years) - 1
   """
-  if start_balance == None or end_balance == None or years == None:
-    return None
-  if start_balance == 0 or years == 0:
-    return None
-  exponent = 1.0 / years
-  result = 0
-  difference = end_balance / start_balance
-  if difference > 0:  # The numbers are either both positive or both negative
-    difference = end_balance / start_balance
-    result = round((pow(difference, exponent) - 1.0) * 100 , 2)
-  else:  # One, and only one, of the numbers is negative
-    # We can't really calculate a real growth rate for these cases, so let's double
-    # an approximateion to have something to show.
-    if start_balance < end_balance:  # start_balance is negative
-      difference = (end_balance - (2.0 * start_balance)) / (-1.0 * start_balance)
-    else:  # end_balance is negative
-      difference = ((-1 * end_balance) + start_balance) / start_balance
-    result = round((pow(difference, exponent) - 1.0) * 100 , 2)
-  if end_balance < 0:
-    result = -1 * result
-  return result
+  start = _ensure_numeric(start_balance, "start_balance")
+  end = _ensure_numeric(end_balance, "end_balance")
+  years_value = _ensure_numeric(years, "years")
+  if years_value <= 0:
+    raise ValueError("years must be greater than 0.")
+  if start == 0:
+    raise ValueError("start_balance must not be 0.")
+  if start * end < 0:
+    raise ValueError("start_balance and end_balance must not have opposing signs.")
+
+  exponent = 1.0 / years_value
+  ratio = end / start
+  if ratio < 0:
+    raise ValueError("Unable to compute CAGR for negative ratios.")
+
+  growth_rate = pow(ratio if ratio != 0 else 0.0, exponent) - 1.0
+  if end < start:
+    growth_rate = -abs(growth_rate)
+  else:
+    growth_rate = abs(growth_rate)
+  return round(growth_rate * 100, 2)
 
 
 def slope_of_best_fit_line_for_data(data):
@@ -44,10 +64,27 @@ def slope_of_best_fit_line_for_data(data):
   Returns:
     Returns the slope of the best fit line.
   """
-  if not data or len(data) < 2:
-    return None
-#  m,b = np.polyfit(range(0, len(data)), data, 1)
-#  return m
+  if data is None:
+    raise ValueError("data must not be None.")
+  if isinstance(data, (str, bytes)):
+    raise ValueError("data must be an iterable of numeric values.")
+  values = list(data)
+  if len(values) < 2:
+    raise ValueError("At least two data points are required to compute a slope.")
+
+  y_values = [
+    _ensure_numeric(point, f"data[{index}]") for index, point in enumerate(values)
+  ]
+  x_values = list(range(len(y_values)))
+  x_mean = sum(x_values) / len(x_values)
+  y_mean = sum(y_values) / len(y_values)
+
+  numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_values, y_values))
+  denominator = sum((x - x_mean) ** 2 for x in x_values)
+  if denominator == 0:
+    raise ValueError("Unable to compute slope when all x values are identical.")
+  slope = numerator / denominator
+  return round(slope, 2)
 
 
 def max_position_size(share_price, trade_volume):
@@ -62,10 +99,10 @@ def max_position_size(share_price, trade_volume):
     share_price: The share price of the stock.
     trade_volume: The average trade volume of the stock.
   """
-  if not share_price or not trade_volume:
-    return None
-  max_shares = math.floor(trade_volume * 0.01)  # 1%
-  max_position = math.floor(share_price * max_shares)
+  share_price_value = _ensure_positive(share_price, "share_price")
+  trade_volume_value = _ensure_positive(trade_volume, "trade_volume")
+  max_shares = math.floor(trade_volume_value * 0.01)  # 1%
+  max_position = math.floor(share_price_value * max_shares)
   return max_position,max_shares
 
 
@@ -91,16 +128,21 @@ def payback_time(market_cap, net_income, estimated_growth_rate):
     receive a 100% return on your investment based on the company's income. If
     any of the inputs are invalid, returns -1.
   """
-  yearly_income = net_income
+  market_cap_value = _ensure_positive(market_cap, "market_cap")
+  net_income_value = _ensure_positive(net_income, "net_income")
+  growth_rate_value = _ensure_numeric(estimated_growth_rate, "estimated_growth_rate")
+  if growth_rate_value < 0:
+    raise ValueError("estimated_growth_rate must be greater than or equal to 0.")
+
+  yearly_income = net_income_value
   total_payback = 0
   years = 0
-  while (total_payback < market_cap):
-    if yearly_income <= 0 or estimated_growth_rate <= 0:
-      years = -1
-      break;
-    yearly_income += (yearly_income * estimated_growth_rate)
+  while total_payback < market_cap_value:
+    yearly_income += yearly_income * growth_rate_value
     total_payback += yearly_income
     years += 1
+    if years > 10_000:
+      raise ValueError("Payback period did not converge within a reasonable timeframe.")
 
   return years
 
@@ -129,11 +171,18 @@ def margin_of_safety_price(current_eps, estimated_growth_rate,
         value can be used to determine when is a good time to exit a position
         after a big run-up in price.
   """
-  if not current_eps or not estimated_growth_rate or not historical_low_pe or not historical_high_pe:
-    return None, None
-  future_eps = calculate_future_eps(current_eps, estimated_growth_rate)
-  future_pe = calculate_future_pe(estimated_growth_rate, historical_low_pe,
-                                  historical_high_pe)
+  current_eps_value = _ensure_positive(current_eps, "current_eps")
+  estimated_growth_rate_value = _ensure_numeric(estimated_growth_rate, "estimated_growth_rate")
+  if estimated_growth_rate_value < -1:
+    raise ValueError("estimated_growth_rate must be greater than -100%.")
+  historical_low_pe_value = _ensure_positive(historical_low_pe, "historical_low_pe")
+  historical_high_pe_value = _ensure_positive(historical_high_pe, "historical_high_pe")
+  if historical_high_pe_value < historical_low_pe_value:
+    raise ValueError("historical_high_pe must be greater than or equal to historical_low_pe.")
+
+  future_eps = calculate_future_eps(current_eps_value, estimated_growth_rate_value)
+  future_pe = calculate_future_pe(estimated_growth_rate_value, historical_low_pe_value,
+                                  historical_high_pe_value)
   future_price = calculate_estimated_future_price(future_eps, future_pe)
   sticker_price = calculate_sticker_price(future_price)
   margin_of_safety = calculate_margin_of_safety(sticker_price)
@@ -160,10 +209,13 @@ def calculate_future_eps(current_eps, estimated_growth_rate, time_horizon=10):
   """
   # FV = C * (1 + r)^n
   # where C -> current_value, r -> rate, n -> years
-  if not current_eps or not estimated_growth_rate:
-    return None
-  ten_year_growth_rate = math.pow(1.0 + estimated_growth_rate, time_horizon)
-  future_eps_value = current_eps * ten_year_growth_rate
+  current_eps_value = _ensure_numeric(current_eps, "current_eps")
+  estimated_growth_rate_value = _ensure_numeric(estimated_growth_rate, "estimated_growth_rate")
+  time_horizon_value = _ensure_numeric(time_horizon, "time_horizon")
+  if time_horizon_value <= 0:
+    raise ValueError("time_horizon must be greater than 0.")
+  ten_year_growth_rate = math.pow(1.0 + estimated_growth_rate_value, time_horizon_value)
+  future_eps_value = current_eps_value * ten_year_growth_rate
   return future_eps_value
 
 
@@ -186,13 +238,17 @@ def calculate_future_pe(estimated_growth_rate, historical_low_pe,
   """
   # To be conservative, we will take the smaller of these two: 1. the average
   # historical PE, 2. double the estimated growth rate.
-  if not estimated_growth_rate or not historical_low_pe \
-     or not historical_high_pe:
-    return None
-  future_pe_one = (historical_low_pe + historical_high_pe) / 2.0
+  estimated_growth_rate_value = _ensure_numeric(estimated_growth_rate, "estimated_growth_rate")
+  historical_low_pe_value = _ensure_positive(historical_low_pe, "historical_low_pe")
+  historical_high_pe_value = _ensure_positive(historical_high_pe, "historical_high_pe")
+  if historical_high_pe_value < historical_low_pe_value:
+    raise ValueError("historical_high_pe must be greater than or equal to historical_low_pe.")
+  future_pe_one = (historical_low_pe_value + historical_high_pe_value) / 2.0
   # Multiply the growth rate by 100 to convert from a decimal to a percent.
-  future_pe_two = 2.0 * (estimated_growth_rate * 100.0)
+  future_pe_two = 2.0 * (estimated_growth_rate_value * 100.0)
   conservative_future_pe = min(future_pe_one, future_pe_two)
+  if conservative_future_pe <= 0:
+    raise ValueError("Calculated future PE must be greater than 0.")
   return conservative_future_pe
 
 
@@ -208,9 +264,9 @@ def calculate_estimated_future_price(future_eps, future_pe):
   Returns:
     The estimated future price of a stock.
   """
-  if not future_eps or not future_pe:
-    return None
-  return future_eps * future_pe
+  future_eps_value = _ensure_numeric(future_eps, "future_eps")
+  future_pe_value = _ensure_numeric(future_pe, "future_pe")
+  return future_eps_value * future_pe_value
 
 
 def calculate_sticker_price(future_price, time_horizon=10,
@@ -232,10 +288,15 @@ def calculate_sticker_price(future_price, time_horizon=10,
   """
   # PV = FV / (1 + r)^n
   # where r -> rate and n -> years
-  if not future_price:
-    return None
-  target_growth_rate = math.pow(1.0 + rate_of_return, time_horizon)
-  sticker_price = future_price / target_growth_rate
+  future_price_value = _ensure_positive(future_price, "future_price")
+  time_horizon_value = _ensure_numeric(time_horizon, "time_horizon")
+  rate_of_return_value = _ensure_numeric(rate_of_return, "rate_of_return")
+  if time_horizon_value <= 0:
+    raise ValueError("time_horizon must be greater than 0.")
+  if rate_of_return_value <= -1:
+    raise ValueError("rate_of_return must be greater than -100%.")
+  target_growth_rate = math.pow(1.0 + rate_of_return_value, time_horizon_value)
+  sticker_price = future_price_value / target_growth_rate
   return sticker_price
 
 
@@ -251,13 +312,18 @@ def calculate_margin_of_safety(sticker_price, margin_of_safety=0.5):
   Returns:
     The margin of safety price.
   """
-  if not sticker_price:
-    return None
-  return sticker_price * (1 - margin_of_safety)
+  sticker_price_value = _ensure_positive(sticker_price, "sticker_price")
+  margin_of_safety_value = _ensure_numeric(margin_of_safety, "margin_of_safety")
+  if not 0 <= margin_of_safety_value <= 1:
+    raise ValueError("margin_of_safety must be between 0 and 1 inclusive.")
+  return sticker_price_value * (1 - margin_of_safety_value)
 
 def calculate_roic(net_income, cash, long_term_debt, stockholder_equity):
-  return (
-    net_income
-    /
-    (stockholder_equity + long_term_debt - cash)
-  ) * 100
+  net_income_value = _ensure_numeric(net_income, "net_income")
+  cash_value = _ensure_numeric(cash, "cash")
+  long_term_debt_value = _ensure_numeric(long_term_debt, "long_term_debt")
+  stockholder_equity_value = _ensure_numeric(stockholder_equity, "stockholder_equity")
+  invested_capital = stockholder_equity_value + long_term_debt_value - cash_value
+  if invested_capital <= 0:
+    raise ValueError("Invested capital must be greater than 0.")
+  return (net_income_value / invested_capital) * 100
