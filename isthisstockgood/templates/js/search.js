@@ -1,4 +1,4 @@
-const TICKER_PATTERN = /^[A-Za-z]{1,5}(?:[.-][A-Za-z]{1,3})?$/;
+const TICKER_PATTERN = /^[A-Za-z]{1,5}(?:[-.][A-Za-z]{1,3})?$/;
 const CHART_LABELS = ['1 Year', '3 Year', '5 Year', 'Max'];
 let financialTrendChart = null;
 
