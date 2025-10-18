@@ -31,7 +31,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["isthisstockgood*"]
+include = ["isthisstockgood*", "magic_formula*"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
