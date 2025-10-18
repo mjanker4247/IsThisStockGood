@@ -1,6 +1,6 @@
 """Utilities for working with Yahoo Finance world indices."""
 
-from .world_indices import (
+from .world_indices_fetcher import (
     DEFAULT_HEADERS,
     INDEX_COMPONENTS_URL_TEMPLATE,
     REQUEST_TIMEOUT,

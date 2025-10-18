@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 import requests
 
-from magic_formula.world_indices import (
+from magic_formula.world_indices_fetcher import (
     INDEX_COMPONENTS_URL_TEMPLATE,
     WORLD_INDICES_URL,
     YahooWorldIndicesClient,
