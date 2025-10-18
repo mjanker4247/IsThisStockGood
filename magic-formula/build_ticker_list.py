@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from magic_formula.world_indices_fetcher import main
 
+from magic_formula.world_indices import main
 
 if __name__ == "__main__":
     main()
