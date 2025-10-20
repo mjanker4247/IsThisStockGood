@@ -1,11 +1,42 @@
 <!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="{{ language_code }}" xmlns="http://www.w3.org/1999/xhtml">
   <head>
     {% include "header.html" %}
   </head>
 
   <body class="d-flex flex-column min-vh-100">
-    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <a class="skip-link" href="#main-content">{{ t.global.skip_to_main }}</a>
+    <header class="language-switcher" role="banner">
+      <div class="container">
+        {% set next_url = request.full_path if request.query_string else request.path %}
+        <form
+            action="{{ url_for('set_language') }}"
+            method="post"
+            class="language-switcher__form form-inline justify-content-end"
+            aria-label="{{ t.global.language_switcher_aria }}"
+        >
+          <label class="sr-only" for="language-select">{{ t.global.language_label }}</label>
+          <input type="hidden" name="next" value="{{ next_url }}" />
+          <select
+              class="custom-select custom-select-sm"
+              id="language-select"
+              name="language"
+              onchange="this.form.submit()"
+          >
+            {% for code, language_option in supported_languages.items() %}
+              <option value="{{ code }}" {% if code == language_code %}selected{% endif %}>
+                {{ language_option.label }}
+              </option>
+            {% endfor %}
+          </select>
+          <noscript>
+            <button type="submit" class="btn btn-secondary btn-sm ml-2">
+              {{ t.global.language_confirmation }}
+            </button>
+          </noscript>
+        </form>
+      </div>
+    </header>
     {% block loading %}{% endblock %}
     <main id="main-content" class="flex-fill" role="main">
       {% block bodycontent %}{% endblock %}

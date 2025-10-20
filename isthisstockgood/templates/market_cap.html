@@ -4,19 +4,19 @@
         type="button"
         class="btn btn-raised btn-lg btn-primary"
         data-toggle="popover"
-        title="Market Cap"
-        data-content="{% include 'txt/market_cap_tooltip.txt' %}"
-    >Market Cap</button>
+        title="{{ t.sections.market_cap.title }}"
+        data-content="{{ t.sections.market_cap.tooltip }}"
+    >{{ t.sections.market_cap.title }}</button>
   </div>
 
   <div class="row pt-3 justify-content-center">
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Average trading volume</caption>
+          <caption class="sr-only">{{ t.sections.market_cap.tables.average_volume_caption }}</caption>
           <thead class="thead-light">
             <tr id="average_volume_title_label">
-              <th scope="col">Average Volume</th>
+              <th scope="col">{{ t.sections.market_cap.tables.average_volume }}</th>
             </tr>
           </thead>
           <tbody>
@@ -31,10 +31,10 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Maximum number of shares to hold</caption>
+          <caption class="sr-only">{{ t.sections.market_cap.tables.shares_caption }}</caption>
           <thead class="thead-light">
             <tr id="shares_to_hold_title_label">
-              <th scope="col">Max Shares to Hold</th>
+              <th scope="col">{{ t.sections.market_cap.tables.shares }}</th>
             </tr>
           </thead>
           <tbody>

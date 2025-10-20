@@ -41,6 +41,20 @@
     z-index: 1000;
   }
 
+  .language-switcher {
+    background-color: #ffffff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .language-switcher__form {
+    padding: 0.75rem 0;
+  }
+
+  .language-switcher select.custom-select {
+    width: auto;
+    min-width: 9rem;
+  }
+
   .chart-wrapper {
     position: relative;
     min-height: 320px;
@@ -105,3 +119,11 @@
 <script src="https://cdn.rawgit.com/FezVrasta/snackbarjs/1.1.0/dist/snackbar.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  window.APP_I18N = {
+    baseTitle: {{ page_title | tojson }},
+    languageCode: {{ language_code | tojson }},
+    locale: {{ t.meta.locale | tojson }},
+    translations: {{ t.js | tojson }}
+  };
+</script>

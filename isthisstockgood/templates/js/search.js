@@ -1,5 +1,34 @@
+
+const APP_I18N = window.APP_I18N || {};
+const TRANSLATIONS = APP_I18N.translations || {};
+const LOCALE = APP_I18N.locale || 'en-US';
+const BASE_PAGE_TITLE = APP_I18N.baseTitle || document.title;
+
+const groupingFormatter = new Intl.NumberFormat(LOCALE, { useGrouping: true, maximumFractionDigits: 3 });
+const integerFormatter = new Intl.NumberFormat(LOCALE, { useGrouping: true, maximumFractionDigits: 0 });
+const decimalFormatter = new Intl.NumberFormat(LOCALE, {
+  useGrouping: true,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const TICKER_PATTERN = /^[A-Za-z]{1,5}(?:[.-][A-Za-z]{1,3})?$/;
-const CHART_LABELS = ['1 Year', '3 Year', '5 Year', 'Max'];
+const CHART_LABELS = TRANSLATIONS.chart_labels || ['1 Year', '3 Year', '5 Year', 'Max'];
+const DATASET_LABELS = TRANSLATIONS.chart_dataset_labels || {};
+const SUMMARY_METRIC_LABELS = TRANSLATIONS.summary_metric_labels || {};
+const SUMMARY_ONE_YEAR_SUFFIX = TRANSLATIONS.summary_one_year_suffix || ' (1Y)';
+const ERROR_MESSAGES = TRANSLATIONS.errors || {};
+const LOADING_TEXT = TRANSLATIONS.loading || 'Loading';
+const ANALYZING_TEMPLATE = TRANSLATIONS.analyzing || 'Analyzing {ticker}';
+const SUMMARY_PROMPT_TEXT = TRANSLATIONS.summary_prompt || 'Financial trend data will appear here after a successful search.';
+const SUMMARY_UNAVAILABLE_TEXT = TRANSLATIONS.summary_unavailable || 'Financial trend data is unavailable for this company.';
+const SUMMARY_PREFIX = TRANSLATIONS.summary_prefix || '1-year growth snapshot:';
+const NEGATIVE_CASH_FLOW_TEXT = TRANSLATIONS.negative_cash_flow || 'Negative Cash Flow';
+const UNDEFINED_TEXT = TRANSLATIONS.undefined || 'Undefined';
+const TOOLTIP_NO_DATA = TRANSLATIONS.chart_tooltip_no_data || 'No data';
+const AXIS_TITLE = TRANSLATIONS.chart_axis || 'Growth (%)';
+const NOT_AVAILABLE_TEXT = TRANSLATIONS.not_available || 'N/A';
+
 let financialTrendChart = null;
 
 class Color {
@@ -23,6 +52,33 @@ class Color {
   static yellow() {
     return '#FFF0B5';
   }
+}
+
+function formatTemplate(template, replacements) {
+  if (typeof template !== 'string') {
+    return '';
+  }
+  return template.replace(/\{(\w+)\}/g, (match, key) => {
+    if (Object.prototype.hasOwnProperty.call(replacements, key)) {
+      const value = replacements[key];
+      return value === undefined || value === null ? '' : String(value);
+    }
+    return match;
+  });
+}
+
+function getNumericValue(selector) {
+  const $element = $(selector);
+  if (!$element.length) {
+    return Number.NaN;
+  }
+  const numericValue = $element.data('numeric-value');
+  return typeof numericValue === 'number' && !Number.isNaN(numericValue) ? numericValue : Number.NaN;
+}
+
+function clearNumericValue(selector) {
+  const $element = $(selector);
+  $element.removeData('numeric-value');
 }
 
 $(document).ready(function() {
@@ -53,13 +109,13 @@ $(document).ready(function() {
     const ticker = sanitizeTickerInput($tickerInput.val());
 
     if (!ticker) {
-      showTickerError('Ticker is required.');
+      showTickerError(ERROR_MESSAGES.ticker_required || 'Ticker is required.');
       $tickerInput.focus();
       return;
     }
 
     if (!TICKER_PATTERN.test(ticker)) {
-      showTickerError('Please enter a valid ticker (letters with optional dot or hyphen).');
+      showTickerError(ERROR_MESSAGES.ticker_invalid || 'Please enter a valid ticker (letters with optional dot or hyphen).');
       $tickerInput.focus();
       return;
     }
@@ -67,7 +123,8 @@ $(document).ready(function() {
     $tickerInput.val(ticker);
     clearTickerError();
 
-    setLoadingState(true, `Analyzing ${ticker}`);
+    const loadingMessage = formatTemplate(ANALYZING_TEMPLATE, { ticker }) || LOADING_TEXT;
+    setLoadingState(true, loadingMessage);
 
     const request = $.post($form.attr('action'), { ticker: ticker });
 
@@ -92,7 +149,7 @@ $(document).ready(function() {
         updateFinancialTrendChartWithData(data);
         updateFinancialTrendSummary(data);
       } catch (error) {
-        const message = 'We were unable to process the response. Please try again.';
+        const message = ERROR_MESSAGES.response_unprocessable || 'We were unable to process the response. Please try again.';
         showTickerError(message);
         showSnackbar(message);
         updateFinancialTrendSummary(null);
@@ -110,7 +167,7 @@ $(document).ready(function() {
     $analyzeSpinner.toggleClass('d-none', !isLoading);
 
     if (loader) {
-      const loaderMessage = message || 'Loading';
+      const loaderMessage = message || LOADING_TEXT;
       loader.setAttribute('data-message', loaderMessage);
       if (typeof loader.show === 'function' && typeof loader.hide === 'function') {
         if (isLoading) {
@@ -143,11 +200,12 @@ $(document).ready(function() {
   }
 
   function handleNetworkError(response) {
-    let message = 'There was an unexpected error. Please try again.';
+    let message = ERROR_MESSAGES.unexpected || 'There was an unexpected error. Please try again.';
     if (response && response.status === 0) {
-      message = 'Network connection lost. Check your internet connection and try again.';
+      message = ERROR_MESSAGES.network || 'Network connection lost. Check your internet connection and try again.';
     } else if (response && response.status) {
-      message = `There was an error (code ${response.status}). Please try again shortly.`;
+      const formatted = formatTemplate(ERROR_MESSAGES.status_code, { status: response.status });
+      message = formatted || message;
     }
     showTickerError(message);
     showSnackbar(message);
@@ -155,8 +213,7 @@ $(document).ready(function() {
 
   function updateWebsiteTitle(data) {
     if (data.ticker) {
-      let baseWebsiteTitle = document.title.split('?')[0] + '?';
-      document.title = baseWebsiteTitle + ' - ' + data.ticker.toUpperCase();
+      document.title = `${BASE_PAGE_TITLE} - ${data.ticker.toUpperCase()}`;
     }
   }
 
@@ -173,60 +230,61 @@ $(document).ready(function() {
     updateBigFiveHtmlWithDataForKey(data, 'roic');
     updateBigFiveHtmlWithDataForKey(data, 'cash');
 
-    updateHtmlWithValueForKey(data, 'debt_equity_ratio', /*commas=*/true);
+    updateHtmlWithValueForKey(data, 'debt_equity_ratio', true);
     colorCellWithIDForZeroBasedRange('#debt_equity_ratio', [1, 2, 3]);
-    updateHtmlWithValueForKey(data, 'total_debt', /*commas=*/true);
-    updateHtmlWithValueForKey(data, 'free_cash_flow', /*commas=*/true);
-    let cash_flow = $('#free_cash_flow').html();
-    if (parseInt(cash_flow.replace(/,/g, ''), 10) >= 0) {
-      updateHtmlWithValueForKey(data, 'debt_payoff_time', /*commas=*/false);
+    updateHtmlWithValueForKey(data, 'total_debt', true);
+    updateHtmlWithValueForKey(data, 'free_cash_flow', true);
+
+    const freeCashFlow = getNumericValue('#free_cash_flow');
+    if (Number.isFinite(freeCashFlow) && freeCashFlow >= 0) {
+      updateHtmlWithValueForKey(data, 'debt_payoff_time', false);
       colorCellWithIDForZeroBasedRange('#debt_payoff_time', [2, 3, 4]);
     } else {
-      $('#debt_payoff_time').html('Negative Cash Flow');
-      $('#debt_payoff_time').css('background-color', Color.red());
+      const $debtPayoffTime = $('#debt_payoff_time');
+      $debtPayoffTime.html(NEGATIVE_CASH_FLOW_TEXT);
+      clearNumericValue('#debt_payoff_time');
+      colorCellWithBackgroundColor('#debt_payoff_time', Color.red());
     }
 
-    updateHtmlWithValueForKey(data, 'margin_of_safety_price', /*commas=*/false);
-    updateHtmlWithValueForKey(data, 'current_price', /*commas=*/false);
-    updateHtmlWithValueForKey(data, 'sticker_price', /*commas=*/false);
-    let marginOfSafety = data['margin_of_safety_price'];
+    updateHtmlWithValueForKey(data, 'margin_of_safety_price', false);
+    updateHtmlWithValueForKey(data, 'current_price', false);
+    updateHtmlWithValueForKey(data, 'sticker_price', false);
+    const marginOfSafety = data['margin_of_safety_price'];
     if (marginOfSafety || marginOfSafety === 0) {
-      let range = [marginOfSafety, marginOfSafety * 1.25, marginOfSafety * 1.5];
+      const range = [marginOfSafety, marginOfSafety * 1.25, marginOfSafety * 1.5];
       colorCellWithIDForZeroBasedRange('#current_price', range);
     } else {
       colorCellWithBackgroundColor('#current_price', Color.red());
     }
 
     let key = 'payback_time';
-    updateHtmlWithValueForKey(data, key, /*commas=*/true);
+    updateHtmlWithValueForKey(data, key, true);
     colorCellWithIDForZeroBasedRange('#' + key, [6, 8, 10]);
     if (!data[key] && data[key] !== 0) {
       colorCellWithBackgroundColor('#' + key, Color.red());
     }
 
-    let ten_cap_key = 'ten_cap_price';
-    let ten_cap_field_id = '#' + ten_cap_key;
-    let current_price = data['current_price'];
-    updateHtmlWithValueForKey(data, ten_cap_key, /*commas=*/true);
-    if (!data[ten_cap_key] && data[ten_cap_key] !== 0) {
-      colorCellWithBackgroundColor(ten_cap_field_id, Color.red());
-    }
-    if (current_price > data[ten_cap_key]) {
-      colorCellWithBackgroundColor(ten_cap_field_id, Color.red());
-    }
-    else {
-      colorCellWithBackgroundColor(ten_cap_field_id, Color.green());
+    const tenCapKey = 'ten_cap_price';
+    const tenCapSelector = '#' + tenCapKey;
+    const currentPrice = data['current_price'];
+    updateHtmlWithValueForKey(data, tenCapKey, false);
+    if (!data[tenCapKey] && data[tenCapKey] !== 0) {
+      colorCellWithBackgroundColor(tenCapSelector, Color.red());
+    } else if (currentPrice > data[tenCapKey]) {
+      colorCellWithBackgroundColor(tenCapSelector, Color.red());
+    } else {
+      colorCellWithBackgroundColor(tenCapSelector, Color.green());
     }
 
-    updateHtmlWithValueForKey(data, 'average_volume', /*commas=*/true);
-    let averageVolume = Number(data['average_volume']);
-    let currentPriceValue = Number(data['current_price']);
-    let minVolume = currentPriceValue <= 1.0 ? 1000000 : 500000;
-    let averageVolumeColor = Number.isFinite(averageVolume) && averageVolume >= minVolume ? Color.green() : Color.red();
+    updateHtmlWithValueForKey(data, 'average_volume', true);
+    const averageVolume = Number(data['average_volume']);
+    const currentPriceValue = Number(currentPrice);
+    const minVolume = currentPriceValue <= 1.0 ? 1000000 : 500000;
+    const averageVolumeColor = Number.isFinite(averageVolume) && averageVolume >= minVolume ? Color.green() : Color.red();
     colorCellWithBackgroundColor('#average_volume', averageVolumeColor);
-    let sharesToHold = Number.isFinite(averageVolume)
-      ? Math.round(averageVolume * 0.01).toLocaleString('en', {useGrouping:true})
-      : 'N/A';
+    const sharesToHold = Number.isFinite(averageVolume)
+      ? integerFormatter.format(Math.round(averageVolume * 0.01))
+      : NOT_AVAILABLE_TEXT;
     $('#shares_to_hold').html(sharesToHold);
   }
 });
@@ -238,11 +296,11 @@ function initializeFinancialTrendChart() {
   }
 
   const datasets = [
-    { metricKey: 'eps', label: 'EPS Growth', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.15)' },
-    { metricKey: 'sales', label: 'Sales Growth', borderColor: '#17a2b8', backgroundColor: 'rgba(23, 162, 184, 0.15)' },
-    { metricKey: 'equity', label: 'Equity Growth', borderColor: '#28a745', backgroundColor: 'rgba(40, 167, 69, 0.15)' },
-    { metricKey: 'cash', label: 'Cash Flow Growth', borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.15)' },
-    { metricKey: 'roic', label: 'ROIC', borderColor: '#9c27b0', backgroundColor: 'rgba(156, 39, 176, 0.15)' }
+    { metricKey: 'eps', label: DATASET_LABELS.eps || 'EPS Growth', borderColor: '#007bff', backgroundColor: 'rgba(0, 123, 255, 0.15)' },
+    { metricKey: 'sales', label: DATASET_LABELS.sales || 'Sales Growth', borderColor: '#17a2b8', backgroundColor: 'rgba(23, 162, 184, 0.15)' },
+    { metricKey: 'equity', label: DATASET_LABELS.equity || 'Equity Growth', borderColor: '#28a745', backgroundColor: 'rgba(40, 167, 69, 0.15)' },
+    { metricKey: 'cash', label: DATASET_LABELS.cash || 'Cash Flow Growth', borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.15)' },
+    { metricKey: 'roic', label: DATASET_LABELS.roic || 'ROIC', borderColor: '#9c27b0', backgroundColor: 'rgba(156, 39, 176, 0.15)' }
   ];
 
   const formattedDatasets = datasets.map(dataset => ({
@@ -276,7 +334,7 @@ function initializeFinancialTrendChart() {
           },
           title: {
             display: true,
-            text: 'Growth (%)'
+            text: AXIS_TITLE
           }
         }
       },
@@ -296,7 +354,7 @@ function initializeFinancialTrendChart() {
               if (context.parsed.y !== null && !Number.isNaN(context.parsed.y)) {
                 label += `${context.parsed.y}%`;
               } else {
-                label += 'No data';
+                label += TOOLTIP_NO_DATA;
               }
               return label;
             }
@@ -312,6 +370,7 @@ function updateFinancialTrendChartWithData(data) {
     return;
   }
 
+  financialTrendChart.data.labels = CHART_LABELS;
   financialTrendChart.data.datasets.forEach(dataset => {
     const metricValues = Array.isArray(data[dataset.metricKey]) ? data[dataset.metricKey] : [];
     dataset.data = CHART_LABELS.map((_, index) => {
@@ -322,8 +381,9 @@ function updateFinancialTrendChartWithData(data) {
       }
       return null;
     });
+    dataset.label = DATASET_LABELS[dataset.metricKey] || dataset.label;
   });
-
+  financialTrendChart.options.scales.y.title.text = AXIS_TITLE;
   financialTrendChart.update();
 }
 
@@ -334,33 +394,28 @@ function updateFinancialTrendSummary(data) {
   }
 
   if (!data) {
-    $summary.text('Financial trend data will appear here after a successful search.');
+    $summary.text(SUMMARY_PROMPT_TEXT);
     return;
   }
 
-  const metricMap = {
-    eps: 'EPS',
-    sales: 'Sales',
-    equity: 'Equity',
-    cash: 'Cash Flow',
-    roic: 'ROIC'
-  };
-
-  const highlights = Object.keys(metricMap).map(key => {
+  const metricKeys = ['eps', 'sales', 'equity', 'cash', 'roic'];
+  const highlights = metricKeys.map(key => {
     const metricValues = Array.isArray(data[key]) ? data[key] : [];
     const oneYearValue = Number(metricValues[0]);
     if (!Number.isFinite(oneYearValue)) {
       return null;
     }
-    return `${metricMap[key]} ${oneYearValue.toFixed(2)}% (1Y)`;
+    const metricLabel = SUMMARY_METRIC_LABELS[key] || key.toUpperCase();
+    const formattedValue = decimalFormatter.format(oneYearValue);
+    return `${metricLabel} ${formattedValue}%${SUMMARY_ONE_YEAR_SUFFIX}`;
   }).filter(Boolean);
 
   if (!highlights.length) {
-    $summary.text('Financial trend data is unavailable for this company.');
+    $summary.text(SUMMARY_UNAVAILABLE_TEXT);
     return;
   }
 
-  const summaryText = `1-year growth snapshot: ${highlights.slice(0, 3).join(', ')}.`;
+  const summaryText = `${SUMMARY_PREFIX} ${highlights.slice(0, 3).join(', ')}.`;
   $summary.text(summaryText);
 }
 
@@ -371,28 +426,25 @@ function sanitizeTickerInput(value) {
   return value.toUpperCase().replace(/[^A-Z.-]/g, '').slice(0, 8);
 }
 
-function updateHtmlWithValueForKey(data, key, commas) {
-  let value = data[key];
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    $('#' + key).html('Undefined');
+function updateHtmlWithValueForKey(data, key, useGrouping) {
+  const $element = $('#' + key);
+  if (!$element.length) {
     return;
   }
-  if (commas) {
-    value = Number(value);
-    if (!Number.isFinite(value)) {
-      $('#' + key).html('Undefined');
-      return;
-    }
-    value = value.toLocaleString('en', {useGrouping:true});
-  } else {
-    value = Number(value);
-    if (!Number.isFinite(value)) {
-      $('#' + key).html('Undefined');
-      return;
-    }
-    value = value.toFixed(2);
+
+  const rawValue = data[key];
+  const numericValue = Number(rawValue);
+
+  if (rawValue === null || rawValue === undefined || Number.isNaN(numericValue)) {
+    $element.html(UNDEFINED_TEXT);
+    clearNumericValue('#' + key);
+    return;
   }
-  $('#' + key).html(value);
+
+  const formatter = useGrouping ? groupingFormatter : decimalFormatter;
+  const formattedValue = formatter.format(numericValue);
+  $element.html(formattedValue);
+  $element.data('numeric-value', numericValue);
 }
 
 function updateBigFiveHtmlWithDataForKey(data, key) {
@@ -400,17 +452,24 @@ function updateBigFiveHtmlWithDataForKey(data, key) {
   let suffixes = ['_1_val', '_3_val', '_5_val', '_max_val'];
   for (let i = 0; i < suffixes.length; i++) {
     let element_id = '#' + key + suffixes[i];
-    let value = '-';
-    if (Array.isArray(row_data) && i < row_data.length) {
-      value = row_data[i];
-    }
-    $(element_id).html(value);
-
-    if (value === '-' || value === null) {
-      let color = (i === 0) ? Color.red() :  Color.white();
-      $(element_id).css('background-color', color);
+    let displayValue = '-';
+    const numericValue = Array.isArray(row_data) && i < row_data.length ? Number(row_data[i]) : Number.NaN;
+    if (Number.isFinite(numericValue)) {
+      displayValue = decimalFormatter.format(numericValue);
+      $(element_id).data('numeric-value', numericValue);
     } else {
-      colorCellWithIDForRange(element_id, [0, 5, 10], true);
+      if (Array.isArray(row_data) && i < row_data.length && row_data[i] !== null && row_data[i] !== undefined) {
+        displayValue = row_data[i];
+      }
+      $(element_id).removeData('numeric-value');
+    }
+    $(element_id).html(displayValue);
+
+    if (!Number.isFinite(numericValue)) {
+      const color = (i === 0) ? Color.red() : Color.white();
+      colorCellWithBackgroundColor(element_id, color);
+    } else {
+      colorCellWithIDForRange(element_id, [0, 5, 10]);
     }
   }
 }
@@ -423,8 +482,8 @@ function colorCellWithIDForRange(id, range) {
     if (range.length !== 3) {
       return;
     }
-    let value = parseFloat($(id).html());
-    if (Number.isNaN(value)) {
+    const value = getNumericValue(id);
+    if (!Number.isFinite(value)) {
       colorCellWithBackgroundColor(id, Color.white());
       return;
     }
@@ -443,9 +502,8 @@ function colorCellWithIDForZeroBasedRange(id, range) {
     if (range.length !== 3) {
       return;
     }
-    let value = parseFloat($(id).html());
-    if (Number.isNaN(value)) {
-      $(id).text('-');
+    const value = getNumericValue(id);
+    if (!Number.isFinite(value)) {
       colorCellWithBackgroundColor(id, Color.white());
       return;
     }
