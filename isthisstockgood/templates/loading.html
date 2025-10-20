@@ -11,7 +11,7 @@
         transition: opacity 1s 0.2s
     }
 </style>
-<popup-loading>
+<popup-loading data-message="{{ t.js.loading }}">
 
 </popup-loading>
 <script>
@@ -34,7 +34,8 @@
             message.setAttribute("class", "text");
             message.setAttribute("role", "status");
             message.setAttribute("aria-live", "polite");
-            message.textContent = ( this.dataset.message ? this.dataset.message : "Loading" );
+            const defaultMessage = (window.APP_I18N && window.APP_I18N.translations && window.APP_I18N.translations.loading) || "Loading";
+            message.textContent = ( this.dataset.message ? this.dataset.message : defaultMessage );
 
             const style = document.createElement("style");
             style.textContent = `
@@ -100,7 +101,8 @@
         attributeChangedCallback(name, oldValue, newValue) {
             const shadow = this.shadowRoot;
             if ( name == "data-message" ) {
-                shadow.querySelector(".text").textContent = ( newValue ? newValue : "Loading" );
+                const defaultMessage = (window.APP_I18N && window.APP_I18N.translations && window.APP_I18N.translations.loading) || "Loading";
+                shadow.querySelector(".text").textContent = ( newValue ? newValue : defaultMessage );
             }
         }
 

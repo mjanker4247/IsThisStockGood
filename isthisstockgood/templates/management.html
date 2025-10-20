@@ -4,20 +4,20 @@
         type="button"
         class="btn btn-raised btn-lg btn-primary"
         data-toggle="popover"
-        title="Management"
-        data-content="{% include 'txt/management_tooltip.txt' %}"
-    >Management</button>
+        title="{{ t.sections.management.title }}"
+        data-content="{{ t.sections.management.tooltip }}"
+    >{{ t.sections.management.title }}</button>
   </div>
   <div class="row pt-3 justify-content-center">
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Cash flow and debt metrics</caption>
+          <caption class="sr-only">{{ t.sections.management.tables.cash_flow_caption }}</caption>
           <thead class="thead-light">
             <tr id="debt_title_labels">
-              <th scope="col">Long term debt</th>
-              <th scope="col">Free cash flow</th>
-              <th scope="col">Years to pay off debt</th>
+              <th scope="col">{{ t.sections.management.tables.long_term_debt }}</th>
+              <th scope="col">{{ t.sections.management.tables.free_cash_flow }}</th>
+              <th scope="col">{{ t.sections.management.tables.years_to_pay }}</th>
             </tr>
           </thead>
           <tbody>
@@ -34,10 +34,10 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Debt to equity ratio</caption>
+          <caption class="sr-only">{{ t.sections.management.tables.de_ratio_caption }}</caption>
           <thead class="thead-light">
             <tr id="debt_equity_title_label">
-              <th scope="col">Debt-to-Equity Ratio (Most recent quarter)</th>
+              <th scope="col">{{ t.sections.management.tables.de_ratio }}</th>
             </tr>
           </thead>
           <tbody>

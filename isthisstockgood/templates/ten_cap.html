@@ -4,19 +4,19 @@
         type="button"
         class="btn btn-raised btn-lg btn-primary"
         data-toggle="popover"
-        title="10 Cap"
-        data-content="{% include 'txt/ten_cap_tooltip.txt' %}"
-    >10 Cap</button>
+        title="{{ t.sections.ten_cap.title }}"
+        data-content="{{ t.sections.ten_cap.tooltip }}"
+    >{{ t.sections.ten_cap.title }}</button>
   </div>
 
   <div class="row pt-3 justify-content-center">
     <div class="col-sm-6 col-lg-4">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">10 cap price estimation</caption>
+          <caption class="sr-only">{{ t.sections.ten_cap.tables.caption }}</caption>
           <thead class="thead-light">
             <tr id="ten_cap_title_label">
-              <th scope="col">10 Cap Price</th>
+              <th scope="col">{{ t.sections.ten_cap.tables.header }}</th>
             </tr>
           </thead>
           <tbody>

@@ -1,21 +1,21 @@
 <section class="container pt-4" id="searchbox" aria-labelledby="searchbox-heading">
   <div class="row justify-content-center">
     <div class="col-lg-8">
-      <h1 id="searchbox-heading" class="section-heading text-center">Analyze a Ticker</h1>
-      <p class="text-center form-helper-text">Enter a valid ticker symbol (letters and optional dot or hyphen).</p>
+      <h1 id="searchbox-heading" class="section-heading text-center">{{ t.search.heading }}</h1>
+      <p class="text-center form-helper-text">{{ t.search.helper }}</p>
     </div>
   </div>
   <form id="searchboxform" action="search" method="post" novalidate>
     <div class="form-group row justify-content-center align-items-start">
       <div class="col-12 col-md-6 col-lg-4 mb-3 mb-md-0">
-        <label class="sr-only" for="ticker">Ticker symbol</label>
+        <label class="sr-only" for="ticker">{{ t.search.label }}</label>
         <input
             type="text"
             name="ticker"
             autofocus
             class="form-control form-control-lg"
             id="ticker"
-            placeholder="e.g. AAPL"
+            placeholder="{{ t.search.placeholder }}"
             maxlength="8"
             autocomplete="off"
             inputmode="latin"
@@ -24,7 +24,7 @@
             aria-required="true"
             required
         />
-        <small id="ticker-help" class="form-text text-muted">Up to five letters with an optional dot or hyphen suffix.</small>
+        <small id="ticker-help" class="form-text text-muted">{{ t.search.helper_detail }}</small>
         <div id="ticker-error" class="invalid-feedback d-block" role="alert" aria-live="assertive"></div>
       </div>
       <div class="col-12 col-md-3 col-lg-2">
@@ -32,9 +32,9 @@
             type="submit"
             id="analyze-button"
             class="btn btn-raised btn-lg btn-warning w-100 d-flex justify-content-center align-items-center"
-            aria-label="Analyze ticker"
+            aria-label="{{ t.search.button_aria }}"
         >
-          <span class="button-text">Analyze</span>
+          <span class="button-text">{{ t.search.button }}</span>
           <span class="spinner-border spinner-border-sm ml-2 d-none" id="analyze-spinner" role="status" aria-hidden="true"></span>
         </button>
       </div>

@@ -4,25 +4,25 @@
         type="button"
         class="btn btn-raised btn-lg btn-primary"
         data-toggle="popover"
-        title="Moat"
-        data-content="{% include 'txt/moat_tooltip.txt' %}"
-    >Moat</button>
+        title="{{ t.sections.moat.title }}"
+        data-content="{{ t.sections.moat.tooltip }}"
+    >{{ t.sections.moat.title }}</button>
   </div>
 
   <div class="row pt-3 justify-content-center">
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Return on invested capital growth rates</caption>
+          <caption class="sr-only">{{ t.sections.moat.tables.roic }}</caption>
           <thead class="thead-light">
             <tr>
-              <th scope="col" colspan="4">ROIC (%)</th>
+              <th scope="col" colspan="4">{{ t.sections.moat.tables.roic }}</th>
             </tr>
             <tr>
-              <th scope="col" id="roic_max">Max</th>
-              <th scope="col">5 year</th>
-              <th scope="col">3 year</th>
-              <th scope="col">1 year</th>
+              <th scope="col" id="roic_max">{{ t.sections.moat.tables.max }}</th>
+              <th scope="col">{{ t.sections.moat.tables.five_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.three_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.one_year }}</th>
             </tr>
           </thead>
           <tbody>
@@ -40,16 +40,16 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Equity and book value per share growth rates</caption>
+          <caption class="sr-only">{{ t.sections.moat.tables.equity }}</caption>
           <thead class="thead-light">
             <tr>
-              <th scope="col" colspan="4">Equity/BVPS Growth Rate (%)</th>
+              <th scope="col" colspan="4">{{ t.sections.moat.tables.equity }}</th>
             </tr>
             <tr>
-              <th scope="col" id="equity_max">Max</th>
-              <th scope="col">5 year</th>
-              <th scope="col">3 year</th>
-              <th scope="col">1 year</th>
+              <th scope="col" id="equity_max">{{ t.sections.moat.tables.max }}</th>
+              <th scope="col">{{ t.sections.moat.tables.five_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.three_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.one_year }}</th>
             </tr>
           </thead>
           <tbody>
@@ -67,16 +67,16 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Earnings per share growth rates</caption>
+          <caption class="sr-only">{{ t.sections.moat.tables.eps }}</caption>
           <thead class="thead-light">
             <tr>
-              <th scope="col" colspan="4">EPS Growth Rate (%)</th>
+              <th scope="col" colspan="4">{{ t.sections.moat.tables.eps }}</th>
             </tr>
             <tr>
-              <th scope="col" id="eps_max">Max</th>
-              <th scope="col">5 year</th>
-              <th scope="col">3 year</th>
-              <th scope="col">1 year</th>
+              <th scope="col" id="eps_max">{{ t.sections.moat.tables.max }}</th>
+              <th scope="col">{{ t.sections.moat.tables.five_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.three_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.one_year }}</th>
             </tr>
           </thead>
           <tbody>
@@ -96,16 +96,16 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Sales and revenue growth rates</caption>
+          <caption class="sr-only">{{ t.sections.moat.tables.sales }}</caption>
           <thead class="thead-light">
             <tr>
-              <th scope="col" colspan="4">Sales/Revenue Growth Rate (%)</th>
+              <th scope="col" colspan="4">{{ t.sections.moat.tables.sales }}</th>
             </tr>
             <tr>
-              <th scope="col" id="sales_max">Max</th>
-              <th scope="col">5 year</th>
-              <th scope="col">3 year</th>
-              <th scope="col">1 year</th>
+              <th scope="col" id="sales_max">{{ t.sections.moat.tables.max }}</th>
+              <th scope="col">{{ t.sections.moat.tables.five_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.three_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.one_year }}</th>
             </tr>
           </thead>
           <tbody>
@@ -123,16 +123,16 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Free cash flow growth rates</caption>
+          <caption class="sr-only">{{ t.sections.moat.tables.cash }}</caption>
           <thead class="thead-light">
             <tr>
-              <th scope="col" colspan="4">Free Cash Flow Growth Rate (%)</th>
+              <th scope="col" colspan="4">{{ t.sections.moat.tables.cash }}</th>
             </tr>
             <tr>
-              <th scope="col" id="cash_max">Max</th>
-              <th scope="col">5 year</th>
-              <th scope="col">3 year</th>
-              <th scope="col">1 year</th>
+              <th scope="col" id="cash_max">{{ t.sections.moat.tables.max }}</th>
+              <th scope="col">{{ t.sections.moat.tables.five_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.three_year }}</th>
+              <th scope="col">{{ t.sections.moat.tables.one_year }}</th>
             </tr>
           </thead>
           <tbody>

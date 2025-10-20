@@ -4,18 +4,18 @@
         type="button"
         class="btn btn-raised btn-lg btn-primary"
         data-toggle="popover"
-        title="Margin of Safety"
-        data-content="{% include 'txt/margin_of_safety_tooltip.txt' %}"
-    >Margin of Safety</button>
+        title="{{ t.sections.margin_of_safety.title }}"
+        data-content="{{ t.sections.margin_of_safety.tooltip }}"
+    >{{ t.sections.margin_of_safety.title }}</button>
   </div>
   <div class="row pt-3 justify-content-center">
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Sticker price estimation</caption>
+          <caption class="sr-only">{{ t.sections.margin_of_safety.tables.sticker_caption }}</caption>
           <thead class="thead-light">
             <tr id="margin_of_safety_title_label">
-              <th scope="col">Sticker Price</th>
+              <th scope="col">{{ t.sections.margin_of_safety.tables.sticker }}</th>
             </tr>
           </thead>
           <tbody>
@@ -30,10 +30,10 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Margin of safety valuation</caption>
+          <caption class="sr-only">{{ t.sections.margin_of_safety.tables.mos_caption }}</caption>
           <thead class="thead-light">
             <tr id="margin_of_safety_price_title_label">
-              <th scope="col">Margin of Safety price</th>
+              <th scope="col">{{ t.sections.margin_of_safety.tables.mos_price }}</th>
             </tr>
           </thead>
           <tbody>
@@ -48,10 +48,10 @@
     <div class="col">
       <div class="table-responsive">
         <table class="table table-bordered text-center">
-          <caption class="sr-only">Current market price</caption>
+          <caption class="sr-only">{{ t.sections.margin_of_safety.tables.current_price_caption }}</caption>
           <thead class="thead-light">
             <tr id="current_price_title_label">
-              <th scope="col">Current Price</th>
+              <th scope="col">{{ t.sections.margin_of_safety.tables.current_price }}</th>
             </tr>
           </thead>
           <tbody>
