@@ -15,7 +15,7 @@ from flask import (
     request,
     url_for,
 )
-from werkzeug.urls import url_parse
+from urllib.parse import urlparse
 
 from .config import AppConfig, configure_logger
 from .i18n import SUPPORTED_LANGUAGES, get_language, get_translations
@@ -109,7 +109,7 @@ def create_app(
         if not next_url:
             return fallback_url
 
-        parsed_url = url_parse(next_url)
+        parsed_url = urlparse(next_url)
         if parsed_url.netloc and parsed_url.netloc != request.host:
             return fallback_url
 

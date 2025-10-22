@@ -4,17 +4,26 @@ services:
     container_name: isthisstockgood 
     restart: unless-stopped 
     expose: 
-      - "8080" # Exposed internally for Nginx/Traefik
+      - "8080" # Exposed internally
     networks: 
-      - www2-backend # attach to backend network (shared with Nginx) 
+      - proxy
     environment:
       - PYTHONUNBUFFERED=1
       - FLASK_ENV=production
       - ISG_HOST=0.0.0.0
       - ISG_PORT=8080
       - ISG_DEBUG=True
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+
+      # HTTP router for subpath /stocks
+      - "traefik.http.routers.stocks.entrypoints=web"
+      - "traefik.http.routers.stocks.rule=Host(`www2.ululuu.de`) && PathPrefix(`/stocks`)"
+      - "traefik.http.routers.stocks.service=stocks-svc"
+      - "traefik.http.services.stocks-svc.loadbalancer.server.port=8080"
       
 networks:
-  # Reuse existing external network created by Nginx/Traefik
-  www2-backend: 
+  # Reuse existing external network created by Traefik
+  proxy: 
     external: true

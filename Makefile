@@ -9,9 +9,6 @@ help:
 	@echo "  docker-run   - Build the production image and run the production docker compose"
 	@echo "  docker-down  - Stop the production docker compose"
 	@echo "  docker-logs  - Tail logs from the production service"
-	@echo "  dev-up       - Run dev compose with live-reload and volume mount"
-	@echo "  dev-down     - Stop dev compose"
-	@echo "  dev-logs     - Tail logs from the dev service"
 
 install:
 	uv sync
@@ -31,14 +28,5 @@ docker-down:
 
 docker-logs:
 	docker compose logs -f --no-color
-
-dev-up:
-	docker compose -f docker-compose.dev.yml up -d --build
-
-dev-down:
-	docker compose -f docker-compose.dev.yml down
-
-dev-logs:
-	docker compose -f docker-compose.dev.yml logs -f --no-color
 
 
