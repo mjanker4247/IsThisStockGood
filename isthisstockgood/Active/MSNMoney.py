@@ -25,7 +25,7 @@ class MSNMoney:
     self.current_price = ''
     self.average_volume = ''
     self.market_cap = ''
-    self.shares_outstanding = ''
+    self.shares_outstanding = 0.0
     self.pe_high = None
     self.pe_low = None
     self.roic = []  # Return on invested capital
@@ -39,7 +39,7 @@ class MSNMoney:
     self.eps = []
     self.eps_growth_rates = []  # Earnings per share
     self.debt_equity_ratio = -1
-    self.last_year_net_income = 0
+    self.last_year_net_income = None
     self.total_debt = 0
 
 
@@ -136,9 +136,27 @@ class MSNMoney:
     # "EPS is calculated by dividing a company's net income
     # by the total number of outstanding shares."
     # - https://www.investopedia.com/terms/e/eps.asp
-    ttm_eps = sum(self.quarterly_eps[-4:])
-    self.last_year_net_income =  ttm_eps * self.shares_outstanding
-    
+    quarterly_eps_values = [value for value in self.quarterly_eps[-4:] if value is not None]
+    if len(quarterly_eps_values) == 4:
+      ttm_eps = sum(quarterly_eps_values)
+      shares_outstanding = _coerce_number(self.shares_outstanding)
+      if shares_outstanding is not None and shares_outstanding > 0:
+        self.shares_outstanding = shares_outstanding
+        self.last_year_net_income = ttm_eps * shares_outstanding
+      else:
+        logger.debug(
+          "Unable to compute last year net income for %s due to missing shares outstanding",
+          self.ticker_symbol,
+        )
+        self.last_year_net_income = None
+    else:
+      logger.debug(
+        "Unable to compute trailing EPS for %s: received quarterly EPS values %s",
+        self.ticker_symbol,
+        quarterly_eps_values,
+      )
+      self.last_year_net_income = None
+
     return True
 
   def _matches_symbol(self, symbol):
@@ -223,28 +241,67 @@ def _extract_data_for_key(yearly_data, key):
   metrics = []
   for year in yearly_data:
     if key in year:
-      metrics.append(year[key])
+      value = _coerce_number(year[key])
+      if value is not None:
+        metrics.append(value)
   return metrics
+
+
+def _coerce_number(value):
+  try:
+    if value is None:
+      return None
+    if isinstance(value, (int, float)):
+      return float(value)
+    if isinstance(value, str):
+      cleaned = value.replace(',', '').strip()
+      if not cleaned:
+        return None
+      return float(cleaned)
+  except (TypeError, ValueError):
+    logger.debug("Unable to coerce value %r to float", value)
+    return None
+  return None
 
 
 def _compute_growth_rates_for_data(data):
   """Computes the compound annual growth rate between 1, 3, 5, and maximum year periods."""
   if data is None or len(data) < 2:
     return None
+
   results = []
-  year_over_year = RuleOne.compound_annual_growth_rate(data[-2], data[-1], 1)
-  results.append(year_over_year)
+
+  def _append_growth_rate(start_index, end_index, years):
+    try:
+      growth_rate = RuleOne.compound_annual_growth_rate(
+        data[start_index], data[end_index], years
+      )
+    except ValueError as exc:
+      logger.debug(
+        "Skipping CAGR calculation for data points (%s -> %s) over %s years: %s",
+        data[start_index],
+        data[end_index],
+        years,
+        exc,
+      )
+      return
+
+    if growth_rate is not None:
+      results.append(growth_rate)
+
+  _append_growth_rate(-2, -1, 1)
+
   if len(data) > 3:
-    growth_rate_3 = RuleOne.compound_annual_growth_rate(data[-4], data[-1], 3)
-    results.append(growth_rate_3)
+    _append_growth_rate(-4, -1, 3)
+
   if len(data) > 5:
-    growth_rate_5 = RuleOne.compound_annual_growth_rate(data[-6], data[-1], 5)
-    results.append(growth_rate_5)
+    _append_growth_rate(-6, -1, 5)
+
   if len(data) > 6:
     last_index = len(data) - 1
-    max_val = RuleOne.compound_annual_growth_rate(data[0], data[-1], last_index)
-    results.append(max_val)
-  return [x for x in results if x is not None]
+    _append_growth_rate(0, -1, last_index)
+
+  return results
 
 
 def _average(list):
