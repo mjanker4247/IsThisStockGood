@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import random
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
 from requests_futures.sessions import FuturesSession
@@ -233,49 +233,58 @@ class DataFetcher:
         agents = tuple(user_agents) if user_agents else DEFAULT_USER_AGENTS
         self._user_agents: Tuple[str, ...] = agents or DEFAULT_USER_AGENTS
         self._session_factory: FuturesSessionFactory = session_factory or FuturesSession
+        self._session: FuturesSession | None = None
 
-    def _create_session(self) -> FuturesSession:
-        """Build a session with a randomized user agent header."""
+    def _get_session(self) -> FuturesSession:
+        """Return a cached ``FuturesSession`` instance, creating it as needed."""
 
-        session = self._session_factory()
-        session.headers.update({"User-Agent": random.choice(self._user_agents)})
-        return session
+        if self._session is None:
+            self._session = self._session_factory()
+        return self._session
+
+    def _schedule_request(
+        self,
+        url: str,
+        *,
+        hooks: Mapping[str, Callable[..., Any]] | None = None,
+        allow_redirects: bool = True,
+    ) -> None:
+        """Submit an asynchronous GET request and register the resulting future."""
+
+        session = self._get_session()
+        rpc = session.get(
+            url,
+            allow_redirects=allow_redirects,
+            headers={"User-Agent": random.choice(self._user_agents)},
+            hooks=hooks,
+        )
+        self.rpcs.append(rpc)
 
     def fetch_msn_money_data(self) -> None:
         """Start the asynchronous workflow to download MSN Money datasets."""
 
         self.msn_money = MSNMoney(self.ticker_symbol)
-        session = self._create_session()
-        rpc = session.get(
+        self._schedule_request(
             self.msn_money.get_ticker_autocomplete_url(),
-            allow_redirects=True,
             hooks={"response": self.continue_fetching_msn_money_data},
         )
-        self.rpcs.append(rpc)
 
     def continue_fetching_msn_money_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
         """Chain additional MSN Money requests once the stock identifier is known."""
 
         msn_stock_id = self.msn_money.extract_stock_id(response.text)
-        session = self._create_session()
-        rpc = session.get(
+        self._schedule_request(
             self.msn_money.get_key_ratios_url(msn_stock_id),
-            allow_redirects=True,
             hooks={"response": self.parse_msn_money_ratios_data},
         )
-        self.rpcs.append(rpc)
-        rpc = session.get(
+        self._schedule_request(
             self.msn_money.get_quotes_url(msn_stock_id),
-            allow_redirects=True,
             hooks={"response": self.parse_msn_money_quotes_data},
         )
-        self.rpcs.append(rpc)
-        rpc = session.get(
+        self._schedule_request(
             self.msn_money.get_annual_statements_url(msn_stock_id),
-            allow_redirects=True,
             hooks={"response": self.parse_msn_money_annual_statement_data},
         )
-        self.rpcs.append(rpc)
 
     def parse_msn_money_ratios_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
         """Parse the ratios dataset returned from MSN Money."""
@@ -311,13 +320,10 @@ class DataFetcher:
         """Start the asynchronous Yahoo Finance analyst analysis fetch."""
 
         self.yahoo_finance_analysis = YahooFinanceAnalysis(self.ticker_symbol)
-        session = self._create_session()
-        rpc = session.get(
+        self._schedule_request(
             self.yahoo_finance_analysis.url,
-            allow_redirects=True,
             hooks={"response": self.parse_yahoo_finance_analysis},
         )
-        self.rpcs.append(rpc)
 
     def parse_yahoo_finance_analysis(self, response: Response, *args: Any, **kwargs: Any) -> None:
         """Parse Yahoo Finance analyst projections and drop invalid payloads."""
@@ -334,15 +340,12 @@ class DataFetcher:
     def fetch_zacks_analysis(self) -> None:
         """Start the asynchronous Zacks analyst analysis fetch."""
 
-        session = self._create_session()
         self.zacks_analysis = Zacks(self.ticker_symbol)
 
-        rpc = session.get(
+        self._schedule_request(
             self.zacks_analysis.url,
-            allow_redirects=True,
             hooks={"response": self.zacks_analysis.parse},
         )
-        self.rpcs.append(rpc)
 
     def parse_growth_rate_estimate(self, response: Response, *args: Any, **kwargs: Any) -> None:
         """Parse supplemental Zacks growth rate data."""
@@ -360,13 +363,10 @@ class DataFetcher:
         """Start the asynchronous Yahoo Finance chart fetch."""
 
         self.yahoo_finance_chart = YahooFinanceChart(self.ticker_symbol)
-        session = self._create_session()
-        rpc = session.get(
+        self._schedule_request(
             self.yahoo_finance_chart.url,
-            allow_redirects=True,
             hooks={"response": self.parse_yahoo_finance_chart},
         )
-        self.rpcs.append(rpc)
 
     def parse_yahoo_finance_chart(self, response: Response, *args: Any, **kwargs: Any) -> None:
         """Parse the historical price chart data from Yahoo Finance."""
