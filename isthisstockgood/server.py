@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 
 from .config import AppConfig, configure_logger
 from .i18n import SUPPORTED_LANGUAGES, get_language, get_translations
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 StockDataFetcher = Callable[[str], Optional[Mapping[str, Any]]]
 
@@ -48,6 +49,11 @@ def create_app(
     resolved_logger = logger or configure_logger(resolved_config.logger_name, resolved_config.log_level)
 
     app = Flask(__name__)
+    # NEW: trust Traefik and honor X-Forwarded-Prefix -> SCRIPT_NAME=/stocks
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1, x_proto=1, x_prefix=1)
+#    app.url_map.strict_slashes = False
+#    Set application root to reflect the subdirectory path
+#    app.config['APPLICATION_ROOT'] = '/stocks'
     app.config.from_mapping(
         ISG_REDIRECT_URL=resolved_config.redirect_url,
         ISG_REDIRECT_HOST_SUFFIX=resolved_config.redirect_host_suffix,
@@ -162,7 +168,7 @@ def create_app(
         response = make_response(render_template("home.html", **template_values))
         return attach_language_cookie(response, language_code)
 
-    @app.route("/search", methods=["POST"])
+    @app.route("/search", methods=["GET","POST"])
     def search() -> Response | str:
         redirect_response = maybe_redirect()
         if redirect_response:
