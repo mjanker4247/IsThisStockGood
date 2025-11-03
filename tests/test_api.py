@@ -51,3 +51,26 @@ def test_ten_cap_price_has_two_places_precision(api_app):
         price = res.json['ten_cap_price']
 
         assert round(price, 2) == price
+
+
+def test_search_endpoint_returns_json_payload(api_app):
+    with api_app.test_client() as test_client:
+        response = test_client.post('/search', data={'ticker': 'MSFT'})
+
+        assert response.status_code == 200
+        assert response.mimetype == 'application/json'
+
+        payload = response.get_json()
+        assert payload['ticker'] == 'MSFT'
+        assert payload['identifier_resolution_succeeded'] is True
+
+
+def test_search_endpoint_returns_error_for_missing_ticker(api_app):
+    with api_app.test_client() as test_client:
+        response = test_client.post('/search', data={'ticker': ''})
+
+        assert response.status_code == 200
+        assert response.mimetype == 'application/json'
+
+        payload = response.get_json()
+        assert 'error' in payload
