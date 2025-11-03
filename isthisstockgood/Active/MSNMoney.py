@@ -231,20 +231,40 @@ def _compute_growth_rates_for_data(data):
   """Computes the compound annual growth rate between 1, 3, 5, and maximum year periods."""
   if data is None or len(data) < 2:
     return None
+
   results = []
-  year_over_year = RuleOne.compound_annual_growth_rate(data[-2], data[-1], 1)
-  results.append(year_over_year)
+
+  def _append_growth_rate(start_index, end_index, years):
+    try:
+      growth_rate = RuleOne.compound_annual_growth_rate(
+        data[start_index], data[end_index], years
+      )
+    except ValueError as exc:
+      logger.debug(
+        "Skipping CAGR calculation for data points (%s -> %s) over %s years: %s",
+        data[start_index],
+        data[end_index],
+        years,
+        exc,
+      )
+      return
+
+    if growth_rate is not None:
+      results.append(growth_rate)
+
+  _append_growth_rate(-2, -1, 1)
+
   if len(data) > 3:
-    growth_rate_3 = RuleOne.compound_annual_growth_rate(data[-4], data[-1], 3)
-    results.append(growth_rate_3)
+    _append_growth_rate(-4, -1, 3)
+
   if len(data) > 5:
-    growth_rate_5 = RuleOne.compound_annual_growth_rate(data[-6], data[-1], 5)
-    results.append(growth_rate_5)
+    _append_growth_rate(-6, -1, 5)
+
   if len(data) > 6:
     last_index = len(data) - 1
-    max_val = RuleOne.compound_annual_growth_rate(data[0], data[-1], last_index)
-    results.append(max_val)
-  return [x for x in results if x is not None]
+    _append_growth_rate(0, -1, last_index)
+
+  return results
 
 
 def _average(list):
