@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import math
 import random
+from concurrent.futures import FIRST_COMPLETED, Future, wait
+from threading import Lock
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
@@ -20,6 +22,7 @@ logger = logging.getLogger("IsThisStockGood")
 
 FuturesSessionFactory = Callable[[], FuturesSession]
 DEFAULT_USER_AGENTS: Tuple[str, ...] = tuple(AppConfig().user_agents)
+DEFAULT_MAX_CONCURRENT_REQUESTS = 2
 
 
 def fetch_data_for_ticker_symbol(
@@ -27,6 +30,7 @@ def fetch_data_for_ticker_symbol(
     *,
     user_agents: Sequence[str] | None = None,
     session_factory: FuturesSessionFactory | None = None,
+    max_concurrent_requests: int | None = None,
 ) -> Optional[Dict[str, Any]]:
     """Fetch and parse all financial data for ``ticker``.
 
@@ -34,6 +38,7 @@ def fetch_data_for_ticker_symbol(
         ticker: The identifier that should be resolved into a tradable ticker symbol.
         user_agents: Optional list of user agent strings to randomize outbound requests.
         session_factory: Optional callable that creates ``FuturesSession`` instances.
+        max_concurrent_requests: Optional limit for simultaneous outbound HTTP calls.
 
     Returns:
         A fully-populated dictionary of processed financial metrics for ``ticker`` or
@@ -58,6 +63,7 @@ def fetch_data_for_ticker_symbol(
         resolved_ticker,
         user_agents=user_agents,
         session_factory=session_factory,
+        max_concurrent_requests=max_concurrent_requests,
     )
 
     # Kick off all remote requests concurrently so downstream parsing happens without
@@ -68,8 +74,7 @@ def fetch_data_for_ticker_symbol(
 
     # Ensure every async request has completed before we attempt to read the parsed
     # payloads, mirroring the synchronization semantics of the legacy implementation.
-    for rpc in data_fetcher.rpcs:
-        rpc.result()
+    data_fetcher.wait_for_completion()
 
     msn_money = data_fetcher.msn_money
     yahoo_finance_analysis = data_fetcher.yahoo_finance_analysis
@@ -214,6 +219,7 @@ class DataFetcher:
         *,
         user_agents: Sequence[str] | None = None,
         session_factory: FuturesSessionFactory | None = None,
+        max_concurrent_requests: int | None = None,
     ) -> None:
         """Initialize a new ``DataFetcher`` instance.
 
@@ -221,9 +227,10 @@ class DataFetcher:
             ticker: The resolved ticker symbol to fetch.
             user_agents: Optional list of HTTP user agent strings used for requests.
             session_factory: Optional callable returning a ``FuturesSession``.
+            max_concurrent_requests: Maximum number of in-flight HTTP requests.
         """
 
-        self.rpcs: list[Any] = []
+        self.rpcs: list[Future[Any]] = []
         self.ticker_symbol = ticker
         self.msn_money: Optional[MSNMoney] = None
         self.yahoo_finance_analysis: Optional[YahooFinanceAnalysis] = None
@@ -234,6 +241,11 @@ class DataFetcher:
         self._user_agents: Tuple[str, ...] = agents or DEFAULT_USER_AGENTS
         self._session_factory: FuturesSessionFactory = session_factory or FuturesSession
         self._session: FuturesSession | None = None
+        self._lock = Lock()
+        requested = max_concurrent_requests if max_concurrent_requests else 0
+        self._max_concurrent_requests = max(1, requested) if requested else DEFAULT_MAX_CONCURRENT_REQUESTS
+        self._inflight: set[Future[Any]] = set()
+        self._futures: list[Future[Any]] = []
 
     def _get_session(self) -> FuturesSession:
         """Return a cached ``FuturesSession`` instance, creating it as needed."""
@@ -242,15 +254,42 @@ class DataFetcher:
             self._session = self._session_factory()
         return self._session
 
+    def _prune_completed_futures(self) -> None:
+        with self._lock:
+            completed = {future for future in self._inflight if future.done()}
+            if completed:
+                self._inflight.difference_update(completed)
+
+    def _await_available_slot(self) -> None:
+        while True:
+            self._prune_completed_futures()
+            with self._lock:
+                if len(self._inflight) < self._max_concurrent_requests:
+                    return
+                pending_snapshot = set(self._inflight)
+            wait(pending_snapshot, return_when=FIRST_COMPLETED)
+
+    def _track_future(self, future: Future[Any]) -> None:
+        with self._lock:
+            self._inflight.add(future)
+            self._futures.append(future)
+
+        def _release(completed: Future[Any]) -> None:
+            with self._lock:
+                self._inflight.discard(completed)
+
+        future.add_done_callback(_release)
+
     def _schedule_request(
         self,
         url: str,
         *,
         hooks: Mapping[str, Callable[..., Any]] | None = None,
         allow_redirects: bool = True,
-    ) -> None:
+    ) -> Future[Any]:
         """Submit an asynchronous GET request and register the resulting future."""
 
+        self._await_available_slot()
         session = self._get_session()
         rpc = session.get(
             url,
@@ -258,7 +297,24 @@ class DataFetcher:
             headers={"User-Agent": random.choice(self._user_agents)},
             hooks=hooks,
         )
-        self.rpcs.append(rpc)
+        self._track_future(rpc)
+        return rpc
+
+    def wait_for_completion(self) -> None:
+        """Block until every scheduled request and callback has finished."""
+
+        while True:
+            with self._lock:
+                snapshot = list(self._futures)
+            if not snapshot:
+                return
+            for future in snapshot:
+                future.result()
+            with self._lock:
+                all_done = all(future.done() for future in self._futures)
+                if all_done:
+                    self.rpcs = list(self._futures)
+                    return
 
     def fetch_msn_money_data(self) -> None:
         """Start the asynchronous workflow to download MSN Money datasets."""

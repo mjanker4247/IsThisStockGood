@@ -126,16 +126,24 @@ $(document).ready(function() {
     const loadingMessage = formatTemplate(ANALYZING_TEMPLATE, { ticker }) || LOADING_TEXT;
     setLoadingState(true, loadingMessage);
 
-    const request = $.post($form.attr('action'), { ticker: ticker });
+    const request = $.ajax({
+      url: $form.attr('action'),
+      method: 'POST',
+      data: { ticker },
+      dataType: 'json',
+      headers: {
+        Accept: 'application/json'
+      }
+    });
 
-    request.fail(function(response) {
-      handleNetworkError(response);
+    request.fail(function(jqXHR, textStatus) {
+      handleNetworkError(jqXHR, textStatus);
       updateFinancialTrendSummary(null);
     });
 
-    request.done(function(json_data) {
+    request.done(function(responseData) {
       try {
-        const data = JSON.parse(json_data);
+        const data = typeof responseData === 'string' ? JSON.parse(responseData) : responseData;
         if (data.error) {
           showTickerError(data.error);
           showSnackbar(data.error);
@@ -199,9 +207,11 @@ $(document).ready(function() {
     });
   }
 
-  function handleNetworkError(response) {
+  function handleNetworkError(response, textStatus) {
     let message = ERROR_MESSAGES.unexpected || 'There was an unexpected error. Please try again.';
-    if (response && response.status === 0) {
+    if (textStatus === 'parsererror') {
+      message = ERROR_MESSAGES.response_unprocessable || message;
+    } else if (response && response.status === 0) {
       message = ERROR_MESSAGES.network || 'Network connection lost. Check your internet connection and try again.';
     } else if (response && response.status) {
       const formatted = formatTemplate(ERROR_MESSAGES.status_code, { status: response.status });
