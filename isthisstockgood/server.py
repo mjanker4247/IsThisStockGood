@@ -9,16 +9,13 @@ from functools import wraps
 
 def get_logger():
     logger = logging.getLogger("IsThisStockGood")
-
     handler = logging.StreamHandler()
     handler.setLevel(logging.WARNING)
-
     h_format = logging.Formatter('%(name)s - %(levelname)s : %(message)s')
     handler.setFormatter(h_format)
-
     logger.addHandler(handler)
-
     return logger
+
 
 def create_cache_decorator(cache):
     """Create a caching decorator for ticker data."""
@@ -41,7 +38,10 @@ def create_cache_decorator(cache):
 def create_app(fetchDataForTickerSymbol):
     app = Flask(__name__)
 
-# Configure caching
+    # Import cache functions
+    from isthisstockgood.DataFetcher import clear_cache, get_cache_stats
+    
+    # Configure caching
     app.config['CACHE_TYPE'] = 'simple'  # Use 'redis' for production
     app.config['CACHE_DEFAULT_TIMEOUT'] = 300
     cache = Cache(app)
@@ -53,9 +53,6 @@ def create_app(fetchDataForTickerSymbol):
         default_limits=["200 per day", "50 per hour"],
         storage_uri="memory://"  # Use redis:// for production
     )
-    
-    # Create cached version of fetch function
-    cached_fetch = create_cache_decorator(cache)(timeout=300)(fetchDataForTickerSymbol)
 
     # NEW: trust Traefik and honor X-Forwarded-Prefix -> SCRIPT_NAME=/stocks
     app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
@@ -63,7 +60,7 @@ def create_app(fetchDataForTickerSymbol):
     @app.route('/api/ticker/nvda')
     @limiter.limit("30 per minute")
     def api_ticker():
-      template_values = cached_fetch("NVDA")
+      template_values = fetchDataForTickerSymbol("NVDA")
 
       if not template_values:
         data = render_template('json/error.json', **{'error' : 'Invalid ticker symbol'})
@@ -85,6 +82,7 @@ def create_app(fetchDataForTickerSymbol):
         mimetype='application/json'
     )
 
+
     @app.route('/')
     def homepage():
       if request.environ['HTTP_HOST'].endswith('.appspot.com'):  #Redirect the appspot url to the custom url
@@ -96,6 +94,7 @@ def create_app(fetchDataForTickerSymbol):
       }
       return render_template('home.html', **template_values)
 
+
     @app.route('/search', methods=['POST'])
     @limiter.limit("10 per minute")
     def search():
@@ -103,7 +102,7 @@ def create_app(fetchDataForTickerSymbol):
         return '<meta http-equiv="refresh" content="0; url=http://isthisstockgood.com" />'
 
       ticker = request.values.get('ticker')
-      template_values = cached_fetch(ticker)
+      template_values = fetchDataForTickerSymbol(ticker)
       if not template_values:
         return render_template('json/error.json', **{'error' : 'Invalid ticker symbol'})
       return render_template('json/stock_data.json', **template_values)
@@ -111,13 +110,27 @@ def create_app(fetchDataForTickerSymbol):
     @app.route('/health')
     def health_check():
         """Health check endpoint for monitoring."""
-        return {'status': 'healthy', 'timestamp': str(date.today())}, 200
+        cache_stats = get_cache_stats()
+        return {
+            'status': 'healthy',
+            'timestamp': str(date.today()),
+            'cache': 'in-memory',
+            'cache_size': cache_stats.get('size', 0)
+        }, 200
     
     @app.route('/cache/clear')
     @limiter.limit("5 per hour")
-    def clear_cache():
+    def clear_cache_route():
         """Clear cache endpoint (admin use)."""
-        cache.clear()
+        clear_cache()
         return {'status': 'cache cleared'}, 200
     
+    @app.route('/cache/stats')
+    @limiter.limit("30 per minute")
+    def cache_stats():
+        """Cache statistics endpoint."""
+        stats = get_cache_stats()
+        return stats, 200
+      
+      
     return app
