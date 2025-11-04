@@ -1,38 +1,41 @@
 import logging
 import yfinance as yf
-from requests_cache import CachedSession
 import pandas as pd
 from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
+from threading import Lock
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
 
 logger = logging.getLogger("IsThisStockGood")
-# Cache configuration
+
+# Simple in-memory cache with expiration
+_cache = {}
+_cache_lock = Lock()
 CACHE_EXPIRE_SECONDS = 300  # 5 minutes
 
-# Create in-memory cache session (no database needed!)
-def create_cached_session():
-  """Create a requests session with in-memory caching."""
-  try:
-      # Use memory backend - no files, no database, just RAM
-      session = CachedSession(
-          cache_name='yfinance_cache',
-          backend='memory',  # In-memory only
-          expire_after=CACHE_EXPIRE_SECONDS,
-          allowable_codes=[200, 404],
-          allowable_methods=['GET', 'POST'],
-          match_headers=False,
-          stale_if_error=True,
-      )
-      
-      logger.info("In-memory cache session created successfully")
-      return session
-      
-  except Exception as e:
-      logger.error(f"Error creating cached session: {e}")
-      return None
+def _get_from_cache(ticker: str) -> Optional[Dict[str, Any]]:
+    """Get data from cache if not expired."""
+    with _cache_lock:
+        if ticker in _cache:
+            data, timestamp = _cache[ticker]
+            age = (datetime.now() - timestamp).total_seconds()
+            if age < CACHE_EXPIRE_SECONDS:
+                logger.info(f"Cache HIT for {ticker} (age: {age:.1f}s)")
+                return data
+            else:
+                logger.info(f"Cache EXPIRED for {ticker} (age: {age:.1f}s)")
+                del _cache[ticker]
+        else:
+            logger.info(f"Cache MISS for {ticker}")
+    return None
 
-# Create global cached session (reused across requests)
-_cached_session = create_cached_session()
+
+def _save_to_cache(ticker: str, data: Dict[str, Any]):
+    """Save data to cache with timestamp."""
+    with _cache_lock:
+        _cache[ticker] = (data, datetime.now())
+        logger.info(f"Cached data for {ticker}")
+        
 
 def fetchDataForTickerSymbol(ticker: str) -> Optional[Dict[str, Any]]:
     """
@@ -46,12 +49,13 @@ def fetchDataForTickerSymbol(ticker: str) -> Optional[Dict[str, Any]]:
     
     ticker = ticker.strip().upper()
     
+    # Check cache first
+    cached_data = _get_from_cache(ticker)
+    if cached_data:
+        return cached_data
+    
     try:
-        # Use cached session if available, otherwise direct yfinance
-        if _cached_session:
-            stock = yf.Ticker(ticker, session=_cached_session)
-        else:
-            stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker)
         
         # Get all data at once (much faster than multiple requests)
         info = stock.info
@@ -138,6 +142,9 @@ def fetchDataForTickerSymbol(ticker: str) -> Optional[Dict[str, Any]]:
             'average_volume': info.get('averageVolume', 'null')
         }
         
+        # Cache the result
+        _save_to_cache(ticker, template_values)
+        
         return template_values
         
     except Exception as e:
@@ -147,20 +154,24 @@ def fetchDataForTickerSymbol(ticker: str) -> Optional[Dict[str, Any]]:
 
 def calculate_growth_rates(df: pd.DataFrame, metric: str, years: int = 5) -> list:
     """Calculate year-over-year growth rates from financial DataFrame."""
-    if metric not in df.index:
+    if df is None or df.empty or metric not in df.index:
         return []
     
-    values = df.loc[metric].dropna().sort_index()
-    if len(values) < 2:
+    try:
+        values = df.loc[metric].dropna().sort_index()
+        if len(values) < 2:
+            return []
+        
+        growth_rates = []
+        for i in range(1, min(len(values), years + 1)):
+            if values.iloc[i-1] != 0:
+                growth_rate = ((values.iloc[i] - values.iloc[i-1]) / abs(values.iloc[i-1])) * 100
+                growth_rates.append(round(growth_rate, 2))
+        
+        return growth_rates
+    except Exception as e:
+        logger.warning(f"Error calculating growth rates for {metric}: {e}")
         return []
-    
-    growth_rates = []
-    for i in range(1, min(len(values), years + 1)):
-        if values.iloc[i-1] != 0:
-            growth_rate = ((values.iloc[i] - values.iloc[i-1]) / abs(values.iloc[i-1])) * 100
-            growth_rates.append(round(growth_rate, 2))
-    
-    return growth_rates
 
 
 def calculate_growth_rates_from_info(info: dict, key: str) -> list:
@@ -175,7 +186,13 @@ def calculate_roic(info: dict, balance_sheet: pd.DataFrame) -> float:
     """Calculate Return on Invested Capital."""
     try:
         net_income = info.get('netIncomeToCommon', 0)
-        total_equity = balance_sheet.loc['Total Stockholder Equity'].iloc[0] if 'Total Stockholder Equity' in balance_sheet.index else 0
+        if balance_sheet is None or balance_sheet.empty:
+            return 0
+            
+        if 'Total Stockholder Equity' not in balance_sheet.index:
+            return 0
+            
+        total_equity = balance_sheet.loc['Total Stockholder Equity'].iloc[0]
         total_debt = info.get('totalDebt', 0)
         
         invested_capital = total_equity + total_debt
@@ -212,11 +229,15 @@ def _calculateMarginOfSafetyPrice(one_year_equity_growth_rate, pe_low, pe_high, 
     if not all([one_year_equity_growth_rate, pe_low, pe_high, ttm_eps, analyst_five_year_growth_rate]):
         return None, None
     
-    growth_rate = _calculate_growth_rate_decimal(analyst_five_year_growth_rate, one_year_equity_growth_rate)
-    margin_of_safety_price, sticker_price = \
-        RuleOne.margin_of_safety_price(float(ttm_eps), growth_rate, float(pe_low), float(pe_high))
-    
-    return margin_of_safety_price, sticker_price
+    try:
+        growth_rate = _calculate_growth_rate_decimal(analyst_five_year_growth_rate, one_year_equity_growth_rate)
+        margin_of_safety_price, sticker_price = \
+            RuleOne.margin_of_safety_price(float(ttm_eps), growth_rate, float(pe_low), float(pe_high))
+        
+        return margin_of_safety_price, sticker_price
+    except Exception as e:
+        logger.error(f"Error calculating margin of safety: {e}")
+        return None, None
 
 
 def _calculatePaybackTime(one_year_equity_growth_rate, last_year_net_income, market_cap, analyst_five_year_growth_rate):
@@ -224,26 +245,29 @@ def _calculatePaybackTime(one_year_equity_growth_rate, last_year_net_income, mar
     if not all([one_year_equity_growth_rate, last_year_net_income, market_cap, analyst_five_year_growth_rate]):
         return None
     
-    growth_rate = _calculate_growth_rate_decimal(analyst_five_year_growth_rate, one_year_equity_growth_rate)
-    payback_time = RuleOne.payback_time(market_cap, last_year_net_income, growth_rate)
+    try:
+        growth_rate = _calculate_growth_rate_decimal(analyst_five_year_growth_rate, one_year_equity_growth_rate)
+        payback_time = RuleOne.payback_time(market_cap, last_year_net_income, growth_rate)
+        
+        return payback_time
+    except Exception as e:
+        logger.error(f"Error calculating payback time: {e}")
+        return None
     
-    return payback_time
 
-# Optional: Function to clear cache manually
+# Cache management functions
 def clear_cache():
     """Clear the in-memory cache."""
-    global _cached_session
-    if _cached_session:
-        _cached_session.cache.clear()
+    with _cache_lock:
+        _cache.clear()
         logger.info("Cache cleared")
 
 
-# Optional: Function to get cache stats
 def get_cache_stats():
     """Get cache statistics."""
-    if _cached_session and hasattr(_cached_session.cache, 'responses'):
+    with _cache_lock:
         return {
-            'size': len(_cached_session.cache.responses),
-            'keys': list(_cached_session.cache.responses.keys())[:10]  # First 10 keys
+            'size': len(_cache),
+            'tickers': list(_cache.keys()),
+            'cache_expire_seconds': CACHE_EXPIRE_SECONDS
         }
-    return {'size': 0}
