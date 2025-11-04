@@ -1,5 +1,9 @@
+import json
+
+import pytest
+
 from isthisstockgood.DataFetcher import DataFetcher
-from isthisstockgood.Active.MSNMoney import _compute_growth_rates_for_data
+from isthisstockgood.Active.MSNMoney import MSNMoney, _compute_growth_rates_for_data
 
 
 def test_msn_money_parsing(offline_data_fetcher):
@@ -50,3 +54,49 @@ def test_growth_rates_ignore_opposing_signs(caplog):
         "Skipping CAGR calculation" in message
         for message in (record.message for record in caplog.records)
     )
+
+
+def _build_minimal_key_ratios_payload() -> str:
+    annual_metrics = []
+    for idx in range(6):
+        annual_metrics.append(
+            {
+                "fiscalPeriodType": "Annual",
+                "earningsPerShare": 1.0 + idx,
+                "freeCashFlowPerShare": 2.0 + idx,
+                "bookValuePerShare": 3.0 + idx,
+                "revenuePerShare": 4.0 + idx,
+                "roic": 10 + idx,
+                "priceToEarningsRatio": 15 + idx,
+            }
+        )
+
+    quarterly_eps = [0.5, 0.6, 0.7, 0.8]
+    quarterly_metrics = []
+    for idx, eps in enumerate(quarterly_eps, start=1):
+        quarterly_metrics.append(
+            {
+                "fiscalPeriodType": f"Q{idx}",
+                "earningsPerShare": eps,
+                "debtToEquityRatio": 40 + idx,
+            }
+        )
+
+    payload = {
+        "displayName": "Test Corp",
+        "industry": "Testing",
+        "companyMetrics": annual_metrics + quarterly_metrics,
+    }
+    return json.dumps(payload)
+
+
+def test_last_year_net_income_requires_shares_outstanding():
+    payload = _build_minimal_key_ratios_payload()
+    msn = MSNMoney("TEST")
+
+    assert msn.parse_ratios_data(payload)
+    assert msn.last_year_net_income is None
+
+    msn.shares_outstanding = "1000"
+    assert msn.parse_ratios_data(payload)
+    assert pytest.approx(sum(msn.quarterly_eps[-4:]) * 1000) == msn.last_year_net_income
