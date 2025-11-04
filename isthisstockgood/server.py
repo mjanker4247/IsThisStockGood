@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 from flask import Flask, request, render_template, json
-
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 def get_logger():
     logger = logging.getLogger("IsThisStockGood")
@@ -18,7 +18,9 @@ def get_logger():
 
 def create_app(fetchDataForTickerSymbol):
     app = Flask(__name__)
-
+    # NEW: trust Traefik and honor X-Forwarded-Prefix -> SCRIPT_NAME=/stocks
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
+    
     @app.route('/api/ticker/nvda')
     def api_ticker():
       template_values = fetchDataForTickerSymbol("NVDA")
