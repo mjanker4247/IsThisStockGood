@@ -15,6 +15,11 @@ dependencies = [
   "pygments>=2.19.2",
   "pytest>=8.3.5",
   "packaging>=25.0",
+  "yfinance>=0.2.66",
+  "financialmodelingprep>=0.0.2",
+  "pandas>=2.0.3",
+  "aiohttp>=3.10.11",
+  "requests-cache>=1.2.1",
 ]
 
 [dependency-groups]
