@@ -2,7 +2,6 @@ import logging
 from datetime import date
 from flask import Flask, request, render_template, json
 from werkzeug.middleware.proxy_fix import ProxyFix
-from flask_caching import Cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from functools import wraps
@@ -40,11 +39,6 @@ def create_app(fetchDataForTickerSymbol):
 
     # Import cache functions
     from isthisstockgood.DataFetcher import clear_cache, get_cache_stats
-    
-    # Configure caching
-    app.config['CACHE_TYPE'] = 'simple'  # Use 'redis' for production
-    app.config['CACHE_DEFAULT_TIMEOUT'] = 300
-    cache = Cache(app)
     
     # Configure rate limiting
     limiter = Limiter(
