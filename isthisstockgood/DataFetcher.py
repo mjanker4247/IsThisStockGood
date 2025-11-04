@@ -1,15 +1,39 @@
 import logging
 import yfinance as yf
-import requests_cache
+from requests_cache import CachedSession
+from requests_cache.backends.memory import MemoryCache
 import pandas as pd
 from typing import Optional, Dict, Any
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
 
 logger = logging.getLogger("IsThisStockGood")
+# Cache configuration
+CACHE_EXPIRE_SECONDS = 300  # 5 minutes
 
-# Enable caching for all yfinance requests
-session = requests_cache.CachedSession('yfinance.cache', expire_after=300)  # 5 min cache
-yf.set_tz_cache_location("cache")
+# Create in-memory cache session (no database needed!)
+def create_cached_session():
+  """Create a requests session with in-memory caching."""
+  try:
+      # Use memory backend - no files, no database, just RAM
+      session = CachedSession(
+          cache_name='yfinance_cache',
+          backend='memory',  # In-memory only
+          expire_after=CACHE_EXPIRE_SECONDS,
+          allowable_codes=[200, 404],
+          allowable_methods=['GET', 'POST'],
+          match_headers=False,
+          stale_if_error=True,
+      )
+      
+      logger.info("In-memory cache session created successfully")
+      return session
+      
+  except Exception as e:
+      logger.error(f"Error creating cached session: {e}")
+      return None
+
+# Create global cached session (reused across requests)
+_cached_session = create_cached_session()
 
 def fetchDataForTickerSymbol(ticker: str) -> Optional[Dict[str, Any]]:
     """
@@ -24,8 +48,11 @@ def fetchDataForTickerSymbol(ticker: str) -> Optional[Dict[str, Any]]:
     ticker = ticker.strip().upper()
     
     try:
-        # Single yfinance call gets ALL data
-        stock = yf.Ticker(ticker, session=session)
+        # Use cached session if available, otherwise direct yfinance
+        if _cached_session:
+            stock = yf.Ticker(ticker, session=_cached_session)
+        else:
+            stock = yf.Ticker(ticker)
         
         # Get all data at once (much faster than multiple requests)
         info = stock.info
@@ -202,3 +229,22 @@ def _calculatePaybackTime(one_year_equity_growth_rate, last_year_net_income, mar
     payback_time = RuleOne.payback_time(market_cap, last_year_net_income, growth_rate)
     
     return payback_time
+
+# Optional: Function to clear cache manually
+def clear_cache():
+    """Clear the in-memory cache."""
+    global _cached_session
+    if _cached_session:
+        _cached_session.cache.clear()
+        logger.info("Cache cleared")
+
+
+# Optional: Function to get cache stats
+def get_cache_stats():
+    """Get cache statistics."""
+    if _cached_session and hasattr(_cached_session.cache, 'responses'):
+        return {
+            'size': len(_cached_session.cache.responses),
+            'keys': list(_cached_session.cache.responses.keys())[:10]  # First 10 keys
+        }
+    return {'size': 0}
