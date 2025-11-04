@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List, Optional
 
 
 @dataclass
@@ -14,16 +15,16 @@ class CompanyInfo:
     pe_high: float
     pe_low: float
     roic: float
-    roic_averages: [float]
+    roic_averages: List[float]
     equity: float
-    equity_growth_rates: [float]
+    equity_growth_rates: List[float]
     free_cash_flow: float
-    free_cash_flow_growth_rates: [float]
+    free_cash_flow_growth_rates: List[float]
     revenue: float
-    revenue_growth_rates: [float]
+    revenue_growth_rates: List[float]
     eps: float
-    quarterly_eps: [float]
-    eps_growth_rates: [float]
+    quarterly_eps: List[float]
+    eps_growth_rates: List[float]
     debt_equity_ratio: float
     last_year_net_income: float
     total_debt: float

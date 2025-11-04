@@ -11,19 +11,17 @@ def compound_annual_growth_rate(start_balance, end_balance, years):
 
   Formula = (end/start)^(1/years) - 1
   """
-  if start_balance == None or end_balance == None or years == None:
+  # Consolidated early return
+  if not all([start_balance, end_balance, years]) or start_balance == 0 or years == 0:
     return None
-  if start_balance == 0 or years == 0:
-    return None
+  
   exponent = 1.0 / years
-  result = 0
-  difference = end_balance / start_balance
-  if difference > 0:  # The numbers are either both positive or both negative
+
+  # Check if same sign (both positive or both negative)
+  if (start_balance > 0) == (end_balance > 0):
     difference = end_balance / start_balance
     result = round((pow(difference, exponent) - 1.0) * 100 , 2)
-  else:  # One, and only one, of the numbers is negative
-    # We can't really calculate a real growth rate for these cases, so let's double
-    # an approximateion to have something to show.
+  else:  # Different signs
     if start_balance < end_balance:  # start_balance is negative
       difference = (end_balance - (2.0 * start_balance)) / (-1.0 * start_balance)
     else:  # end_balance is negative

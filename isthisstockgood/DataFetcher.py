@@ -6,9 +6,14 @@ from isthisstockgood.Active.MSNMoney import MSNMoney
 from isthisstockgood.Active.YahooFinance import YahooFinanceAnalysis
 from isthisstockgood.Active.Zacks import Zacks
 from threading import Lock
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from concurrent.futures import wait, FIRST_EXCEPTION
 
 logger = logging.getLogger("IsThisStockGood")
 
+# Request timeout configuration (connect, read)
+DEFAULT_TIMEOUT = (3, 10)
 
 def fetchDataForTickerSymbol(ticker):
   """Fetches and parses all of the financial data for the `ticker`.
@@ -36,6 +41,9 @@ def fetchDataForTickerSymbol(ticker):
   """
   if not ticker:
     return None
+  
+  # Normalize ticker early
+  ticker = ticker.strip().upper()
 
   data_fetcher = DataFetcher(ticker)
 
@@ -46,9 +54,22 @@ def fetchDataForTickerSymbol(ticker):
   data_fetcher.fetch_zacks_analysis()
 
 
-  # Wait for each RPC result before proceeding.
-  for rpc in data_fetcher.rpcs:
-    rpc.result()
+  # Wait for all to complete with timeout
+  completed, pending = wait(
+      data_fetcher.rpcs, 
+      timeout=15,  # 15 second timeout
+      return_when=FIRST_EXCEPTION
+  )
+  
+  # Cancel pending requests if timeout
+  for future in pending:
+      future.cancel()
+      logger.warning(f"Request timeout for {ticker}, cancelled pending request")
+  
+  # Early exit if critical data missing
+  if not data_fetcher.msn_money:
+      logger.warning(f"Failed to fetch MSN Money data for {ticker}")
+      return None
 
   msn_money = data_fetcher.msn_money
   yahoo_finance_analysis = data_fetcher.yahoo_finance_analysis
@@ -120,6 +141,10 @@ def _calculatePaybackTime(one_year_equity_growth_rate, last_year_net_income, mar
 class DataFetcher():
   """A helper class that syncronizes all of the async data fetches."""
 
+  # Class-level session pool for reuse
+  _session_pool = None
+  _session_lock = Lock()
+
   USER_AGENT_LIST = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/77.0',
@@ -138,12 +163,40 @@ class DataFetcher():
     self.yahoo_finance_chart = None
     self.error = False
 
-  def _create_session(self):
-    session = FuturesSession()
+    # Initialize session pool if needed
+    if DataFetcher._session_pool is None:
+        with DataFetcher._session_lock:
+            if DataFetcher._session_pool is None:
+                DataFetcher._session_pool = self._create_persistent_session()
+
+  def _create_persistent_session(self):
+    """Create a persistent session with connection pooling and retries."""
+    session = FuturesSession(max_workers=10)
+
+    # Configure retry strategy
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=[429, 500, 502, 503, 504],
+    )
+
+    adapter = HTTPAdapter(
+        max_retries=retry_strategy,
+        pool_connections=10,
+        pool_maxsize=20
+    )
+
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
     session.headers.update({
-      'User-Agent' : random.choice(DataFetcher.USER_AGENT_LIST)
+        'User-Agent': random.choice(DataFetcher.USER_AGENT_LIST)
     })
+
     return session
+  
+  def _create_session(self):
+    """Return the pooled session."""
+    return DataFetcher._session_pool
 
   def fetch_msn_money_data(self):
     """
@@ -153,9 +206,12 @@ class DataFetcher():
     """
     self.msn_money = MSNMoney(self.ticker_symbol)
     session = self._create_session()
-    rpc = session.get(self.msn_money.get_ticker_autocomplete_url(), allow_redirects=True, hooks={
-       'response': self.continue_fetching_msn_money_data,
-    })
+    rpc = session.get(self.msn_money.get_ticker_autocomplete_url(), 
+                      allow_redirects=True, 
+                      timeout=DEFAULT_TIMEOUT,
+                      hooks={
+                        'response': self.continue_fetching_msn_money_data,
+                      })
     self.rpcs.append(rpc)
 
   def continue_fetching_msn_money_data(self, response, *args, **kwargs):
@@ -163,30 +219,65 @@ class DataFetcher():
     After msn_stock_id was fetched in fetch_msn_money_data method
     we can now get the financials.
     """
-    msn_stock_id = self.msn_money.extract_stock_id(response.text)
-    session = self._create_session()
-    rpc = session.get(self.msn_money.get_key_ratios_url(msn_stock_id), allow_redirects=True, hooks={
-       'response': self.parse_msn_money_ratios_data,
-    })
-    self.rpcs.append(rpc)
-    rpc = session.get(self.msn_money.get_quotes_url(msn_stock_id), allow_redirects=True, hooks={
-       'response': self.parse_msn_money_quotes_data,
-    })
-    self.rpcs.append(rpc)
-    rpc = session.get(self.msn_money.get_annual_statements_url(msn_stock_id), allow_redirects=True, hooks={
-       'response': self.parse_msn_money_annual_statement_data,
-    })
-    self.rpcs.append(rpc)
+    try:
+      if response.status_code != 200:
+        logger.warning(f"MSN autocomplete failed: {response.status_code}")
+        return
+
+      msn_stock_id = self.msn_money.extract_stock_id(response.text)
+      session = self._create_session()
+      rpc = session.get(self.msn_money.get_key_ratios_url(msn_stock_id), 
+                        allow_redirects=True, 
+                        timeout=DEFAULT_TIMEOUT,
+                        hooks={
+                          'response': self.parse_msn_money_ratios_data,
+                        })
+      self.rpcs.append(rpc)
+      rpc = session.get(self.msn_money.get_quotes_url(msn_stock_id), 
+                        allow_redirects=True, 
+                        timeout=DEFAULT_TIMEOUT,
+                        hooks={
+                          'response': self.parse_msn_money_quotes_data,
+                        })
+      self.rpcs.append(rpc)
+      rpc = session.get(self.msn_money.get_annual_statements_url(msn_stock_id), 
+                        allow_redirects=True, 
+                        timeout=DEFAULT_TIMEOUT,
+                        hooks={
+                          'response': self.parse_msn_money_annual_statement_data,
+                        })
+      self.rpcs.append(rpc)
+    except Exception as e:
+      logger.error(f"Error in continue_fetching_msn_money_data: {e}", exc_info=True)
+
+  def parse_msn_money_overview_data(self, response, *args, **kwargs):
+    try:
+      if response.status_code != 200:
+          logger.warning(f"MSN overview fetch failed: {response.status_code}")
+          return
+      
+      if not self.msn_money:
+          return
+      
+      result = response.text
+      self.msn_money.parse_overview_data(result)
+    except Exception as e:
+      logger.error(f"Error parsing MSN overview data: {e}", exc_info=True)
+
 
   # Called asynchronously upon completion of the URL fetch from
   # `fetch_msn_money_data` and `continue_fetching_msn_money_data`.
   def parse_msn_money_ratios_data(self, response, *args, **kwargs):
-    if response.status_code != 200:
-      return
-    if not self.msn_money:
-      return
-    result = response.text
-    self.msn_money.parse_ratios_data(result)
+    try:
+      if response.status_code != 200:
+        logger.warning(f"MSN ratios fetch failed: {response.status_code}")
+        return
+      if not self.msn_money:
+        return
+      result = response.text
+      self.msn_money.parse_ratios_data(result)
+    except Exception as e:
+      logger.error(f"Error parsing MSN ratios data: {e}", exc_info=True)
 
 
   # Called asynchronously upon completion of the URL fetch from
@@ -209,25 +300,48 @@ class DataFetcher():
     result = response.text
     self.msn_money.parse_annual_report_data(result)
 
+  def parse_msn_money_annual_financials_data(self, response, *args, **kwargs):
+    try:
+      if response.status_code != 200:
+          logger.warning(f"MSN financials fetch failed: {response.status_code}")
+          return
+      
+      if not self.msn_money:
+          return
+      
+      result = response.text
+      self.msn_money.parse_annual_financials_data(result)
+    except Exception as e:
+      logger.error(f"Error parsing MSN financials data: {e}", exc_info=True)
+
+
   def fetch_yahoo_finance_analysis(self):
     self.yahoo_finance_analysis = YahooFinanceAnalysis(self.ticker_symbol)
     session = self._create_session()
-    rpc = session.get(self.yahoo_finance_analysis.url, allow_redirects=True, hooks={
-       'response': self.parse_yahoo_finance_analysis,
-    })
+    rpc = session.get(self.yahoo_finance_analysis.url, 
+                      allow_redirects=True, 
+                      timeout=DEFAULT_TIMEOUT,
+                      hooks={
+                        'response': self.parse_yahoo_finance_analysis,
+                      })
     self.rpcs.append(rpc)
 
   # Called asynchronously upon completion of the URL fetch from
   # `fetch_yahoo_finance_analysis`.
   def parse_yahoo_finance_analysis(self, response, *args, **kwargs):
-    if response.status_code != 200:
-      return
-    if not self.yahoo_finance_analysis:
-      return
-    result = response.text
-    success = self.yahoo_finance_analysis.parse_analyst_five_year_growth_rate(result)
-    if not success:
-      self.yahoo_finance_analysis = None
+    try:
+      if response.status_code != 200:
+        logger.warning(f"Yahoo Finance fetch failed: {response.status_code}")
+        return
+      if not self.yahoo_finance_analysis:
+        return
+      result = response.text
+      success = self.yahoo_finance_analysis.parse_analyst_five_year_growth_rate(result)
+      if not success:
+        self.yahoo_finance_analysis = None
+    except Exception as e:
+      logger.error(f"Error parsing Yahoo Finance data: {e}", exc_info=True)
+
 
   def fetch_zacks_analysis(self):
     session = self._create_session()
@@ -236,6 +350,7 @@ class DataFetcher():
     rpc = session.get(
       self.zacks_analysis.url,
       allow_redirects=True,
+      timeout=DEFAULT_TIMEOUT,
       hooks={
        'response': self.zacks_analysis.parse,
       }
@@ -243,14 +358,19 @@ class DataFetcher():
     self.rpcs.append(rpc)
 
   def parse_growth_rate_estimate(self, response, *args, **kwargs):
-    if response.status_code != 200:
-      return
-    if not self.zacks_analysis:
-      return
-    result = response.text
-    success = self.zacks_analysis.parse_analyst_five_year_growth_rate(result)
-    if not success:
-      self.zacks_analysis = None
+    try:
+      if response.status_code != 200:
+        logger.warning(f"Zacks fetch failed: {response.status_code}")
+        return
+      if not self.zacks_analysis:
+        return
+      result = response.text
+      success = self.zacks_analysis.parse_analyst_five_year_growth_rate(result)
+      if not success:
+        self.zacks_analysis = None
+    except Exception as e:
+      logger.error(f"Error parsing Zacks data: {e}", exc_info=True)
+
 
   def fetch_yahoo_finance_chart(self):
     self.yahoo_finance_chart = YahooFinanceChart(self.ticker_symbol)
