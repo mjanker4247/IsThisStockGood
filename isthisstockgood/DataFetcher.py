@@ -1,7 +1,6 @@
 import logging
 import yfinance as yf
 from requests_cache import CachedSession
-from requests_cache.backends.memory import MemoryCache
 import pandas as pd
 from typing import Optional, Dict, Any
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
