@@ -1,46 +1,34 @@
-<section class="container pt-4" id="searchbox" aria-labelledby="searchbox-heading">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <h1 id="searchbox-heading" class="section-heading text-center">Analyze a Ticker</h1>
-      <p class="text-center form-helper-text">Enter a valid ticker symbol (letters and optional dot or hyphen).</p>
-    </div>
-  </div>
-  <form id="searchboxform" action="search" method="post" novalidate>
-    <div class="form-group row justify-content-center align-items-start">
-      <div class="col-12 col-md-6 col-lg-4 mb-3 mb-md-0">
-        <label class="sr-only" for="ticker">Ticker symbol</label>
+<div class="container pt-4" "id="searchbox">
+  <form id="searchboxform" action="{{ url_for('search') }}" method="post">
+    <div class="form-group row justify-content-center">
+      <div class="col-md-3 nopadding">
         <input
             type="text"
-            name="ticker"
             autofocus
-            class="form-control form-control-lg"
+            class="form-control"
             id="ticker"
-            placeholder="e.g. AAPL"
-            maxlength="8"
-            autocomplete="off"
-            inputmode="latin"
-            pattern="^[A-Za-z]{1,5}(?:[.-][A-Za-z]{1,3})?$"
-            aria-describedby="ticker-help ticker-error"
-            aria-required="true"
-            required
-        />
-        <small id="ticker-help" class="form-text text-muted">Up to five letters with an optional dot or hyphen suffix.</small>
-        <div id="ticker-error" class="invalid-feedback d-block" role="alert" aria-live="assertive"></div>
+            placeholder="Ticker Symbol"
+            maxlength=8/>
       </div>
-      <div class="col-12 col-md-3 col-lg-2">
-        <button
+      <div class="col-md-1 nopadding">
+        <input
             type="submit"
-            id="analyze-button"
-            class="btn btn-raised btn-lg btn-warning w-100 d-flex justify-content-center align-items-center"
-            aria-label="Analyze ticker"
+            value="Analyze"
+            class="btn btn-raised btn-md btn-warning"
         >
-          <span class="button-text">Analyze</span>
-          <span class="spinner-border spinner-border-sm ml-2 d-none" id="analyze-spinner" role="status" aria-hidden="true"></span>
-        </button>
       </div>
     </div>
   </form>
-</section>
+</div>
+
+<script>
+document.querySelector("#ticker").addEventListener("keypress", (event) => {
+  let key = event.key;
+  if (!key.match(/[A-Za-z,.\-]/)) {
+      event.preventDefault();
+    }
+});
+</script>
 
 <script>
   {% include "js/search.js" %}

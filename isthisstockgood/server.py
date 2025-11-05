@@ -1,104 +1,70 @@
-from __future__ import annotations
-
 import logging
-import os
 from datetime import date
-from typing import Any, Callable, Mapping, Optional
+from flask import Flask, request, render_template, json
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-from flask import Flask, Response, json, redirect, render_template, request
+def get_logger():
+    logger = logging.getLogger("IsThisStockGood")
 
-from .config import AppConfig, configure_logger
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.WARNING)
 
-StockDataFetcher = Callable[[str], Optional[Mapping[str, Any]]]
+    h_format = logging.Formatter('%(name)s - %(levelname)s : %(message)s')
+    handler.setFormatter(h_format)
 
+    logger.addHandler(handler)
 
-def create_app(
-    fetch_data_for_ticker: StockDataFetcher,
-    config: AppConfig | None = None,
-    logger: logging.Logger | None = None,
-) -> Flask:
-    """Create and configure the Flask application.
+    return logger
 
-    Args:
-        fetch_data_for_ticker: Callable used to retrieve stock data dictionaries.
-        config: Optional application configuration to override environment defaults.
-        logger: Optional logger instance shared across the application.
-
-    Returns:
-        A fully-configured :class:`flask.Flask` instance ready to serve requests.
-    """
-
-    resolved_config = config or AppConfig.from_environ(os.environ)
-    resolved_logger = logger or configure_logger(resolved_config.logger_name, resolved_config.log_level)
-
+def create_app(fetchDataForTickerSymbol):
     app = Flask(__name__)
-    app.config.from_mapping(
-        ISG_REDIRECT_URL=resolved_config.redirect_url,
-        ISG_REDIRECT_HOST_SUFFIX=resolved_config.redirect_host_suffix,
-        ISG_ENABLE_REDIRECT=resolved_config.enable_redirect,
-        ISG_DEFAULT_TICKER=resolved_config.default_ticker,
+    # NEW: trust Traefik and honor X-Forwarded-Prefix -> SCRIPT_NAME=/stocks
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
+    
+    @app.route('/api/ticker/nvda')
+    def api_ticker():
+      template_values = fetchDataForTickerSymbol("NVDA")
+
+      if not template_values:
+        data = render_template('json/error.json', **{'error' : 'Invalid ticker symbol'})
+      else:
+        data = render_template('json/stock_data.json', **template_values)
+
+      return app.response_class(
+        response=data,
+        status=200,
+        mimetype='application/json'
     )
 
-    app.logger.handlers = resolved_logger.handlers
-    app.logger.setLevel(resolved_logger.level)
-    app.logger.propagate = False
+    @app.route('/api')
+    def api():
+      data = {}
+      return app.response_class(
+        response=json.dumps(data),
+        status=200,
+        mimetype='application/json'
+    )
 
-    def maybe_redirect() -> Optional[Response]:
-        redirect_url: str = app.config.get("ISG_REDIRECT_URL")
-        redirect_suffix: str = app.config.get("ISG_REDIRECT_HOST_SUFFIX")
-        redirect_enabled: bool = app.config.get("ISG_ENABLE_REDIRECT", True)
+    @app.route('/')
+    def homepage():
+      if request.environ['HTTP_HOST'].endswith('.appspot.com'):  #Redirect the appspot url to the custom url
+        return '<meta http-equiv="refresh" content="0; url=https://isthisstockgood.com" />'
 
-        if redirect_enabled and redirect_url and redirect_suffix and request.host.endswith(redirect_suffix):
-            return redirect(redirect_url, code=302)
+      template_values = {
+        'page_title' : "Is This Stock Good?",
+        'current_year' : date.today().year,
+      }
+      return render_template('home.html', **template_values)
 
-        return None
+    @app.route('/search', methods=['POST'])
+    def search():
+      if request.environ['HTTP_HOST'].endswith('.appspot.com'):  #Redirect the appspot url to the custom url
+        return '<meta http-equiv="refresh" content="0; url=http://isthisstockgood.com" />'
 
-    @app.route("/api/ticker/<string:ticker>")
-    def api_ticker(ticker: str) -> Response:
-        template_values = fetch_data_for_ticker(ticker or app.config["ISG_DEFAULT_TICKER"])
-
-        if not template_values:
-            data = render_template("json/error.json", error="Invalid ticker symbol")
-        else:
-            data = render_template("json/stock_data.json", **template_values)
-
-        return app.response_class(response=data, status=200, mimetype="application/json")
-
-    @app.route("/api")
-    def api() -> Response:
-        data: Mapping[str, Any] = {}
-        return app.response_class(
-            response=json.dumps(data),
-            status=200,
-            mimetype="application/json",
-        )
-
-    @app.route("/")
-    def homepage() -> Response | str:
-        redirect_response = maybe_redirect()
-        if redirect_response:
-            return redirect_response
-
-        template_values = {
-            "page_title": "Is This Stock Good?",
-            "current_year": date.today().year,
-        }
-        return render_template("home.html", **template_values)
-
-    @app.route("/search", methods=["POST"])
-    def search() -> Response | str:
-        redirect_response = maybe_redirect()
-        if redirect_response:
-            return redirect_response
-
-        ticker = request.values.get("ticker", "")
-        template_values = fetch_data_for_ticker(ticker)
-        if not template_values:
-            return render_template("json/error.json", error="Invalid ticker symbol")
-
-        return render_template("json/stock_data.json", **template_values)
+      ticker = request.values.get('ticker')
+      template_values = fetchDataForTickerSymbol(ticker)
+      if not template_values:
+        return render_template('json/error.json', **{'error' : 'Invalid ticker symbol'})
+      return render_template('json/stock_data.json', **template_values)
 
     return app
-
-
-__all__ = ["create_app", "StockDataFetcher"]

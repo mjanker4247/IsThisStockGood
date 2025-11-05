@@ -3,7 +3,7 @@ name = "IsThisStockGood"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.8,<4.0"
 authors = [
   { name = "Marco Janker and AI" }
 ]
@@ -12,18 +12,15 @@ dependencies = [
   "wheel>=0.43.0,<0.44.0",
   "lxml>=5.2.2,<6.0.0",
   "flask>=3.0.3,<4.0.0",
-  "yfinance>=0.2.66",
-  "pandas>=2.0.3",
-  "numpy>=1.24.4",
-  "html5lib>=1.1",
-  "requests>=2.32.5",
-  "query>=0.1.4",
+  "pygments>=2.19.2",
+  "iniconfig>=2.1.0",
+  "pytest>=8.3.5",
+  "packaging>=25.0",
 ]
 
 [dependency-groups]
 dev = [
-  "pylint>=4.0.1",
-  "pytest>=8.2.1,<9.0.0",
+  "pytest>=8.2.1,<9.0.0"
 ]
 
 [build-system]
@@ -31,20 +28,17 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["isthisstockgood*", "magic_formula*"]
+include = ["isthisstockgood*"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
 
 [tool.pylint]
-indent-string="    "
+indent-string="  "
 
 [tool.pylint.messages_control]
 disable = [
   "missing-docstring",
   "invalid-name",
-  "trailing-whitespace",
-  "line-too-long",
-  "broad-exception-caught",
 ]

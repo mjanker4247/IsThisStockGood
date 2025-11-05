@@ -4,17 +4,44 @@ services:
     container_name: isthisstockgood 
     restart: unless-stopped 
     expose: 
-      - "8080" # Exposed internally for Nginx/Traefik
+      - "8080" # Exposed internally
     networks: 
-      - www2-backend # attach to backend network (shared with Nginx) 
+      - proxy
     environment:
       - PYTHONUNBUFFERED=1
-      - FLASK_ENV=production
+      - FLASK_ENV=development
       - ISG_HOST=0.0.0.0
       - ISG_PORT=8080
       - ISG_DEBUG=True
-      
+    labels:
+      # Shared
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.stocks-svc.loadbalancer.server.port=8080"
+      - "traefik.http.routers.stocks.service=stocks-svc"
+
+      # HTTP router for subpath /stocks
+      - "traefik.http.routers.stocks.entrypoints=web"
+      - "traefik.http.routers.stocks.rule=Host(`www2.ululuu.de`) && PathPrefix(`/stocks`)"
+      - "traefik.http.routers.stocks.priority=100"
+      - "traefik.http.routers.stocks.middlewares=stocks-addprefix@docker,stocks-stripprefix@docker,default@file"
+      - "traefik.http.routers.stocks.service=stocks-svc"
+
+      # HTTPS router
+      - "traefik.http.routers.stocks-secure.entrypoints=websecure"
+      - "traefik.http.routers.stocks-secure.rule=Host(`www2.ululuu.de`) && PathPrefix(`/stocks`)"
+      - "traefik.http.routers.stocks-secure.tls=true"
+      - "traefik.http.routers.stocks-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.stocks-secure.priority=100"
+      - "traefik.http.routers.stocks-secure.middlewares=stocks-addprefix@docker,stocks-stripprefix@docker,default@file"
+      - "traefik.http.routers.stocks-secure.service=stocks-svc"
+
+      # Middlewares
+      - "traefik.http.middlewares.stocks-stripprefix.stripprefix.prefixes=/stocks"
+      - "traefik.http.middlewares.stocks-stripprefix.stripprefix.forceSlash=false"
+      - "traefik.http.middlewares.stocks-addprefix.headers.customrequestheaders.X-Forwarded-Prefix=/stocks"
+
 networks:
-  # Reuse existing external network created by Nginx/Traefik
-  www2-backend: 
+  # Reuse existing external network created by Traefik
+  proxy:
     external: true
