@@ -1,7 +1,6 @@
 import json
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -10,8 +9,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from isthisstockgood.Active.MSNMoney import MSNMoney
-from isthisstockgood.Active.YahooFinance import YahooFinanceAnalysis
-from isthisstockgood.Active.Zacks import Zacks
+from isthisstockgood.Active.alphavantage_client import AlphaVantageFundamentals
+from isthisstockgood.Active.yfinance_client import YFinanceCompanyProfile
 from isthisstockgood.DataFetcher import DataFetcher
 
 
@@ -44,29 +43,31 @@ def offline_data_fetcher(monkeypatch: pytest.MonkeyPatch, test_data_manager: Tes
     """Patch asynchronous fetchers to use static payloads for repeatable tests."""
 
     def _apply() -> None:
-        def fake_fetch_msn_money_data(self: DataFetcher) -> None:
-            self.msn_money = MSNMoney(self.ticker_symbol)
-            autocomplete_payload = test_data_manager.load_text("msn_autocomplete.json")
-            self.msn_money.extract_stock_id(autocomplete_payload)
-            self.msn_money.parse_annual_report_data(test_data_manager.load_text("msn_annual_statements.json"))
-            self.msn_money.parse_ratios_data(test_data_manager.load_text("msn_key_ratios.json"))
-            self.msn_money.parse_quotes_data(test_data_manager.load_text("msn_quotes.json"))
-            if not self.msn_money.description:
-                self.msn_money.description = "Test company description"
+        profile_payload = test_data_manager.load_json("yfinance_profile.json")
+        fundamentals_payload = test_data_manager.load_json("alphavantage_fundamentals.json")
 
-        def fake_fetch_yahoo_finance_analysis(self: DataFetcher) -> None:
-            self.yahoo_finance_analysis = YahooFinanceAnalysis(self.ticker_symbol)
-            self.yahoo_finance_analysis.parse_analyst_five_year_growth_rate(
-                test_data_manager.load_text("yahoo_analysis.html")
+        def fake_fetch_msn_money_data(self: DataFetcher) -> None:
+            symbol = self.ticker_symbol.upper()
+            if symbol != "MSFT":
+                self.msn_money = None
+                return
+
+            profile = YFinanceCompanyProfile.from_payload(symbol, profile_payload)
+            fundamentals = AlphaVantageFundamentals.from_payload(
+                symbol,
+                overview=fundamentals_payload["overview"],
+                income_statement=fundamentals_payload["income_statement"],
+                balance_sheet=fundamentals_payload["balance_sheet"],
+                cash_flow=fundamentals_payload["cash_flow"],
+                earnings=fundamentals_payload["earnings"],
+                shares_override=profile.shares_outstanding,
+            )
+            self.msn_money = MSNMoney.from_sources(
+                symbol,
+                profile=profile,
+                fundamentals=fundamentals,
             )
 
-        def fake_fetch_zacks_analysis(self: DataFetcher) -> None:
-            self.zacks_analysis = Zacks(self.ticker_symbol)
-            response = SimpleNamespace(status_code=200, text=test_data_manager.load_text("zacks_analysis.html"))
-            self.zacks_analysis.parse(response)
-
-        monkeypatch.setattr(DataFetcher, "fetch_msn_money_data", fake_fetch_msn_money_data)
-        monkeypatch.setattr(DataFetcher, "fetch_yahoo_finance_analysis", fake_fetch_yahoo_finance_analysis)
-        monkeypatch.setattr(DataFetcher, "fetch_zacks_analysis", fake_fetch_zacks_analysis)
+        monkeypatch.setattr(DataFetcher, "fetch_msn_money_data", fake_fetch_msn_money_data, raising=False)
 
     return _apply

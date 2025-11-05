@@ -1,7 +1,0 @@
-{
-  "data": {
-    "stocks": [
-      "{\"RT00S\":\"MSFT\",\"Ticker\":\"MSFT\",\"SecId\":\"12345\",\"Description\":\"Microsoft Corporation provides software, services, devices, and solutions.\"}"
-    ]
-  }
-}

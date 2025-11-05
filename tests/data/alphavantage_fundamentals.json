@@ -1,0 +1,53 @@
+{
+  "overview": {
+    "SharesOutstanding": "7500000000"
+  },
+  "income_statement": {
+    "annualReports": [
+      {"fiscalDateEnding": "2023-12-31", "totalRevenue": "220000000000", "netIncome": "72000000000", "ebit": "85000000000"},
+      {"fiscalDateEnding": "2022-12-31", "totalRevenue": "210000000000", "netIncome": "68000000000", "ebit": "80000000000"},
+      {"fiscalDateEnding": "2021-12-31", "totalRevenue": "190000000000", "netIncome": "61000000000", "ebit": "73000000000"},
+      {"fiscalDateEnding": "2020-12-31", "totalRevenue": "168000000000", "netIncome": "52000000000", "ebit": "61000000000"},
+      {"fiscalDateEnding": "2019-12-31", "totalRevenue": "143000000000", "netIncome": "39000000000", "ebit": "47000000000"},
+      {"fiscalDateEnding": "2018-12-31", "totalRevenue": "110000000000", "netIncome": "30000000000", "ebit": "36000000000"}
+    ]
+  },
+  "balance_sheet": {
+    "annualReports": [
+      {"fiscalDateEnding": "2023-12-31", "totalShareholderEquity": "210000000000", "totalDebt": "65000000000", "cashAndCashEquivalentsAtCarryingValue": "35000000000"},
+      {"fiscalDateEnding": "2022-12-31", "totalShareholderEquity": "195000000000", "totalDebt": "60000000000", "cashAndCashEquivalentsAtCarryingValue": "30000000000"},
+      {"fiscalDateEnding": "2021-12-31", "totalShareholderEquity": "180000000000", "totalDebt": "58000000000", "cashAndCashEquivalentsAtCarryingValue": "28000000000"},
+      {"fiscalDateEnding": "2020-12-31", "totalShareholderEquity": "165000000000", "totalDebt": "55000000000", "cashAndCashEquivalentsAtCarryingValue": "25000000000"},
+      {"fiscalDateEnding": "2019-12-31", "totalShareholderEquity": "150000000000", "totalDebt": "52000000000", "cashAndCashEquivalentsAtCarryingValue": "23000000000"},
+      {"fiscalDateEnding": "2018-12-31", "totalShareholderEquity": "130000000000", "totalDebt": "48000000000", "cashAndCashEquivalentsAtCarryingValue": "18000000000"}
+    ]
+  },
+  "cash_flow": {
+    "annualReports": [
+      {"fiscalDateEnding": "2023-12-31", "operatingCashflow": "89000000000", "capitalExpenditures": "-20000000000"},
+      {"fiscalDateEnding": "2022-12-31", "operatingCashflow": "83000000000", "capitalExpenditures": "-18000000000"},
+      {"fiscalDateEnding": "2021-12-31", "operatingCashflow": "76000000000", "capitalExpenditures": "-17000000000"},
+      {"fiscalDateEnding": "2020-12-31", "operatingCashflow": "65000000000", "capitalExpenditures": "-15000000000"},
+      {"fiscalDateEnding": "2019-12-31", "operatingCashflow": "53000000000", "capitalExpenditures": "-14000000000"},
+      {"fiscalDateEnding": "2018-12-31", "operatingCashflow": "45000000000", "capitalExpenditures": "-12000000000"}
+    ]
+  },
+  "earnings": {
+    "annualEarnings": [
+      {"fiscalDateEnding": "2023-12-31", "reportedEPS": "9.95"},
+      {"fiscalDateEnding": "2022-12-31", "reportedEPS": "9.21"},
+      {"fiscalDateEnding": "2021-12-31", "reportedEPS": "8.12"},
+      {"fiscalDateEnding": "2020-12-31", "reportedEPS": "7.35"},
+      {"fiscalDateEnding": "2019-12-31", "reportedEPS": "5.76"},
+      {"fiscalDateEnding": "2018-12-31", "reportedEPS": "4.20"}
+    ],
+    "quarterlyEarnings": [
+      {"fiscalDateEnding": "2024-03-31", "reportedEPS": "2.45"},
+      {"fiscalDateEnding": "2023-12-31", "reportedEPS": "2.32"},
+      {"fiscalDateEnding": "2023-09-30", "reportedEPS": "2.27"},
+      {"fiscalDateEnding": "2023-06-30", "reportedEPS": "2.09"},
+      {"fiscalDateEnding": "2023-03-31", "reportedEPS": "2.01"},
+      {"fiscalDateEnding": "2022-12-31", "reportedEPS": "2.20"}
+    ]
+  }
+}

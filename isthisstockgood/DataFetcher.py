@@ -1,43 +1,30 @@
+"""High-level coordination for fetching company fundamentals."""
+
 from __future__ import annotations
 
 import logging
 import math
-import random
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional, Sequence
 
 import isthisstockgood.RuleOneInvestingCalculations as RuleOne
-from requests_futures.sessions import FuturesSession
-from requests import Response
 
-from isthisstockgood.Active.MSNMoney import MSNMoney
-from isthisstockgood.Active.YahooFinance import YahooFinanceAnalysis
-from isthisstockgood.Active.YahooFinanceChart import YahooFinanceChart
-from isthisstockgood.Active.Zacks import Zacks
+from isthisstockgood.Active.MSNMoney import MSNMoney, MSNMoneyError
 from isthisstockgood.IdentifierResolver import resolve_identifier
 from isthisstockgood.config import AppConfig
 
 logger = logging.getLogger("IsThisStockGood")
 
-FuturesSessionFactory = Callable[[], FuturesSession]
-DEFAULT_USER_AGENTS: Tuple[str, ...] = tuple(AppConfig().user_agents)
-
 
 def fetch_data_for_ticker_symbol(
     ticker: str,
     *,
-    user_agents: Sequence[str] | None = None,
-    session_factory: FuturesSessionFactory | None = None,
+    user_agents: Sequence[str] | None = None,  # retained for API compatibility
+    http_client_factory: Any | None = None,
+    executor: Any | None = None,
+    alpha_vantage_api_key: str | None = None,
 ) -> Optional[Dict[str, Any]]:
     """Fetch and parse all financial data for ``ticker``.
-
-    Args:
-        ticker: The identifier that should be resolved into a tradable ticker symbol.
-        user_agents: Optional list of user agent strings to randomize outbound requests.
-        session_factory: Optional callable that creates ``FuturesSession`` instances.
-
-    Returns:
-        A fully-populated dictionary of processed financial metrics for ``ticker`` or
-        ``None`` when the ticker cannot be resolved or upstream data sources fail.
 
     The resulting dictionary mirrors the structure used in the original implementation
     so templates and clients can continue to rely on keys such as ``roic``, ``eps``,
@@ -56,77 +43,75 @@ def fetch_data_for_ticker_symbol(
 
     data_fetcher = DataFetcher(
         resolved_ticker,
-        user_agents=user_agents,
-        session_factory=session_factory,
+        alpha_vantage_api_key=alpha_vantage_api_key,
     )
 
-    # Kick off all remote requests concurrently so downstream parsing happens without
-    # blocking on individual endpoints.
-    data_fetcher.fetch_msn_money_data()
-    data_fetcher.fetch_yahoo_finance_analysis()
-    data_fetcher.fetch_zacks_analysis()
+    try:
+        data_fetcher.fetch_msn_money_data()
+        data_fetcher.flush()
+        fundamentals = data_fetcher.msn_money
+    finally:
+        data_fetcher.close()
 
-    # Ensure every async request has completed before we attempt to read the parsed
-    # payloads, mirroring the synchronization semantics of the legacy implementation.
-    for rpc in data_fetcher.rpcs:
-        rpc.result()
-
-    msn_money = data_fetcher.msn_money
-    yahoo_finance_analysis = data_fetcher.yahoo_finance_analysis
-    zacks_analysis = data_fetcher.zacks_analysis
-
-    if msn_money is None:
-        logger.error("MSN Money data unavailable for ticker %s", resolved_ticker)
+    if fundamentals is None:
+        logger.error("Fundamental data unavailable for ticker %s", resolved_ticker)
         return None
 
-    # NOTE: Some equities—particularly newly listed or thinly covered tickers—do not
-    # expose analyst growth rates. Fall back to Zacks data or zero just like before.
-    five_year_growth_rate = (
-        yahoo_finance_analysis.five_year_growth_rate if yahoo_finance_analysis
-        else zacks_analysis.five_year_growth_rate if zacks_analysis
-        else 0
-    )
+    five_year_growth_rate = fundamentals.five_year_growth_rate or 0.0
+    equity_growth_rates = fundamentals.equity_growth_rates or []
+    one_year_equity_growth = equity_growth_rates[-1] if equity_growth_rates else 0.0
+
+    ttm_eps = fundamentals.trailing_twelve_month_eps or sum(fundamentals.quarterly_eps[-4:])
 
     margin_of_safety_price, sticker_price = _calculate_margin_of_safety_price(
-        msn_money.equity_growth_rates[-1],
-        msn_money.pe_low,
-        msn_money.pe_high,
-        sum(msn_money.quarterly_eps[-4:]),
+        one_year_equity_growth,
+        fundamentals.pe_low,
+        fundamentals.pe_high,
+        ttm_eps,
         five_year_growth_rate,
     )
     payback_time = _calculate_payback_time(
-        msn_money.equity_growth_rates[-1],
-        msn_money.last_year_net_income,
-        msn_money.market_cap,
+        one_year_equity_growth,
+        fundamentals.last_year_net_income,
+        fundamentals.market_cap,
         five_year_growth_rate,
     )
 
-    free_cash_flow_per_share = float(msn_money.free_cash_flow[-1])
-    computed_free_cash_flow = round(free_cash_flow_per_share * msn_money.shares_outstanding)
-    ten_cap_price = 10 * free_cash_flow_per_share
+    free_cash_flow_per_share = float(fundamentals.free_cash_flow[-1]) if fundamentals.free_cash_flow else 0.0
+    shares_outstanding = fundamentals.shares_outstanding
+    computed_free_cash_flow = (
+        round(free_cash_flow_per_share * shares_outstanding) if shares_outstanding and free_cash_flow_per_share else 0
+    )
+    ten_cap_price = 10 * free_cash_flow_per_share if free_cash_flow_per_share else 0.0
+
+    debt_payoff_time: Optional[int]
+    if computed_free_cash_flow > 0:
+        debt_payoff_time = round(float(fundamentals.total_debt) / computed_free_cash_flow)
+    else:
+        debt_payoff_time = None
 
     template_values = {
-        "ticker": msn_money.ticker_symbol if msn_money and msn_money.ticker_symbol else resolved_ticker,
+        "ticker": fundamentals.ticker_symbol or resolved_ticker,
         "identifier": resolution.input_identifier,
         "identifier_type": resolution.identifier_type,
         "identifier_resolution_succeeded": resolution.successful,
-        "name": msn_money.name if msn_money and msn_money.name else "null",
-        "description": msn_money.description if msn_money and msn_money.description else "null",
-        "roic": msn_money.roic_averages if msn_money and msn_money.roic_averages else [],
-        "eps": msn_money.eps_growth_rates if msn_money and msn_money.eps_growth_rates else [],
-        "sales": msn_money.revenue_growth_rates if msn_money and msn_money.revenue_growth_rates else [],
-        "equity": msn_money.equity_growth_rates if msn_money and msn_money.equity_growth_rates else [],
-        "cash": msn_money.free_cash_flow_growth_rates if msn_money and msn_money.free_cash_flow_growth_rates else [],
-        "total_debt": msn_money.total_debt,
+        "name": fundamentals.name or "null",
+        "description": fundamentals.description or "null",
+        "roic": fundamentals.roic_averages or [],
+        "eps": fundamentals.eps_growth_rates or [],
+        "sales": fundamentals.revenue_growth_rates or [],
+        "equity": fundamentals.equity_growth_rates or [],
+        "cash": fundamentals.free_cash_flow_growth_rates or [],
+        "total_debt": fundamentals.total_debt,
         "free_cash_flow": computed_free_cash_flow,
         "ten_cap_price": round(ten_cap_price, 2),
-        "debt_payoff_time": round(float(msn_money.total_debt) / computed_free_cash_flow),
-        "debt_equity_ratio": msn_money.debt_equity_ratio if msn_money and msn_money.debt_equity_ratio >= 0 else -1,
+        "debt_payoff_time": debt_payoff_time,
+        "debt_equity_ratio": fundamentals.debt_equity_ratio if fundamentals.debt_equity_ratio >= 0 else -1,
         "margin_of_safety_price": margin_of_safety_price if margin_of_safety_price else "null",
-        "current_price": msn_money.current_price if msn_money and msn_money.current_price else "null",
+        "current_price": fundamentals.current_price if fundamentals.current_price else "null",
         "sticker_price": sticker_price if sticker_price else "null",
         "payback_time": payback_time if payback_time else "null",
-        "average_volume": msn_money.average_volume if msn_money and msn_money.average_volume else "null",
+        "average_volume": fundamentals.average_volume if fundamentals.average_volume else "null",
     }
 
     return template_values
@@ -135,24 +120,26 @@ def fetch_data_for_ticker_symbol(
 def _calculate_growth_rate_decimal(analyst_growth_rate: float, current_growth_rate: float) -> float:
     """Convert the lower of the analyst and trailing growth rates into a decimal."""
 
-    growth_rate = min(float(analyst_growth_rate), float(current_growth_rate))
-    # Divide the growth rate by 100 to convert from percent to decimal.
-    return growth_rate / 100.0
+    growth_rate = min(float(analyst_growth_rate or 0), float(current_growth_rate or 0))
+    return max(growth_rate, 0.0) / 100.0
 
 
 def _calculate_margin_of_safety_price(
     one_year_equity_growth_rate: float,
-    pe_low: float,
-    pe_high: float,
-    ttm_eps: float,
-    analyst_five_year_growth_rate: float,
-) -> Tuple[Optional[float], Optional[float]]:
+    pe_low: float | None,
+    pe_high: float | None,
+    ttm_eps: float | None,
+    analyst_five_year_growth_rate: float | None,
+) -> tuple[Optional[float], Optional[float]]:
     """Compute the Rule #1 margin of safety and sticker price for the current ticker."""
 
     if not one_year_equity_growth_rate or not pe_low or not pe_high or not ttm_eps or not analyst_five_year_growth_rate:
         return None, None
 
     growth_rate = _calculate_growth_rate_decimal(analyst_five_year_growth_rate, one_year_equity_growth_rate)
+    if growth_rate <= 0:
+        return None, None
+
     margin_of_safety_price, sticker_price = RuleOne.margin_of_safety_price(
         float(ttm_eps),
         growth_rate,
@@ -165,8 +152,8 @@ def _calculate_margin_of_safety_price(
 def _calculate_payback_time(
     one_year_equity_growth_rate: float,
     last_year_net_income: float,
-    market_cap: float,
-    analyst_five_year_growth_rate: float,
+    market_cap: float | None,
+    analyst_five_year_growth_rate: float | None,
 ) -> Optional[float]:
     """Estimate the payback time for the equity using Rule #1 methodology."""
 
@@ -193,8 +180,10 @@ def _calculate_payback_time(
         return None
 
     growth_rate = _calculate_growth_rate_decimal(analyst_five_year_growth_rate, one_year_equity_growth_rate)
+    if growth_rate <= 0:
+        return None
     try:
-        return RuleOne.payback_time(market_cap, last_year_net_income, growth_rate)
+        return RuleOne.payback_time(float(market_cap), last_year_net_income, growth_rate)
     except ValueError:
         logger.warning(
             "Unable to compute payback time with market cap=%s, income=%s, growth=%s",
@@ -205,180 +194,43 @@ def _calculate_payback_time(
         return None
 
 
+@dataclass
 class DataFetcher:
-    """Coordinate asynchronous fetching and parsing for a single ticker symbol."""
+    """Coordinate fundamental data retrieval for a single ticker symbol."""
 
-    def __init__(
-        self,
-        ticker: str,
-        *,
-        user_agents: Sequence[str] | None = None,
-        session_factory: FuturesSessionFactory | None = None,
-    ) -> None:
-        """Initialize a new ``DataFetcher`` instance.
+    ticker_symbol: str
+    alpha_vantage_api_key: str | None = None
+    fundamentals_factory: Callable[[str], MSNMoney] | None = None
 
-        Args:
-            ticker: The resolved ticker symbol to fetch.
-            user_agents: Optional list of HTTP user agent strings used for requests.
-            session_factory: Optional callable returning a ``FuturesSession``.
-        """
+    msn_money: Optional[MSNMoney] = None
 
-        self.rpcs: list[Any] = []
-        self.ticker_symbol = ticker
-        self.msn_money: Optional[MSNMoney] = None
-        self.yahoo_finance_analysis: Optional[YahooFinanceAnalysis] = None
-        self.zacks_analysis: Optional[Zacks] = None
-        self.yahoo_finance_chart: Optional[YahooFinanceChart] = None
-        self.error = False
-        agents = tuple(user_agents) if user_agents else DEFAULT_USER_AGENTS
-        self._user_agents: Tuple[str, ...] = agents or DEFAULT_USER_AGENTS
-        self._session_factory: FuturesSessionFactory = session_factory or FuturesSession
+    def __post_init__(self) -> None:
+        if self.alpha_vantage_api_key is None:
+            config = AppConfig()
+            self.alpha_vantage_api_key = getattr(config, "alpha_vantage_api_key", None)
 
-    def _create_session(self) -> FuturesSession:
-        """Build a session with a randomized user agent header."""
+        if self.fundamentals_factory is None:
+            self.fundamentals_factory = self._default_fundamentals_factory
 
-        session = self._session_factory()
-        session.headers.update({"User-Agent": random.choice(self._user_agents)})
-        return session
+    def _default_fundamentals_factory(self, symbol: str) -> MSNMoney:
+        return MSNMoney(symbol, alpha_vantage_api_key=self.alpha_vantage_api_key)
 
     def fetch_msn_money_data(self) -> None:
-        """Start the asynchronous workflow to download MSN Money datasets."""
+        try:
+            fundamentals = self.fundamentals_factory(self.ticker_symbol)
+            if hasattr(fundamentals, "load"):
+                fundamentals.load()
+        except MSNMoneyError as exc:
+            logger.warning("Failed to load fundamentals for %s: %s", self.ticker_symbol, exc)
+            self.msn_money = None
+        else:
+            self.msn_money = fundamentals
 
-        self.msn_money = MSNMoney(self.ticker_symbol)
-        session = self._create_session()
-        rpc = session.get(
-            self.msn_money.get_ticker_autocomplete_url(),
-            allow_redirects=True,
-            hooks={"response": self.continue_fetching_msn_money_data},
-        )
-        self.rpcs.append(rpc)
+    def flush(self) -> None:  # retained for API compatibility
+        return None
 
-    def continue_fetching_msn_money_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
-        """Chain additional MSN Money requests once the stock identifier is known."""
-
-        msn_stock_id = self.msn_money.extract_stock_id(response.text)
-        session = self._create_session()
-        rpc = session.get(
-            self.msn_money.get_key_ratios_url(msn_stock_id),
-            allow_redirects=True,
-            hooks={"response": self.parse_msn_money_ratios_data},
-        )
-        self.rpcs.append(rpc)
-        rpc = session.get(
-            self.msn_money.get_quotes_url(msn_stock_id),
-            allow_redirects=True,
-            hooks={"response": self.parse_msn_money_quotes_data},
-        )
-        self.rpcs.append(rpc)
-        rpc = session.get(
-            self.msn_money.get_annual_statements_url(msn_stock_id),
-            allow_redirects=True,
-            hooks={"response": self.parse_msn_money_annual_statement_data},
-        )
-        self.rpcs.append(rpc)
-
-    def parse_msn_money_ratios_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
-        """Parse the ratios dataset returned from MSN Money."""
-
-        if response.status_code != 200:
-            return
-        if not self.msn_money:
-            return
-        result = response.text
-        self.msn_money.parse_ratios_data(result)
-
-    def parse_msn_money_quotes_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
-        """Parse the quotes dataset returned from MSN Money."""
-
-        if response.status_code != 200:
-            return
-        if not self.msn_money:
-            return
-        result = response.text
-        self.msn_money.parse_quotes_data(result)
-
-    def parse_msn_money_annual_statement_data(self, response: Response, *args: Any, **kwargs: Any) -> None:
-        """Parse the annual statement dataset returned from MSN Money."""
-
-        if response.status_code != 200:
-            return
-        if not self.msn_money:
-            return
-        result = response.text
-        self.msn_money.parse_annual_report_data(result)
-
-    def fetch_yahoo_finance_analysis(self) -> None:
-        """Start the asynchronous Yahoo Finance analyst analysis fetch."""
-
-        self.yahoo_finance_analysis = YahooFinanceAnalysis(self.ticker_symbol)
-        session = self._create_session()
-        rpc = session.get(
-            self.yahoo_finance_analysis.url,
-            allow_redirects=True,
-            hooks={"response": self.parse_yahoo_finance_analysis},
-        )
-        self.rpcs.append(rpc)
-
-    def parse_yahoo_finance_analysis(self, response: Response, *args: Any, **kwargs: Any) -> None:
-        """Parse Yahoo Finance analyst projections and drop invalid payloads."""
-
-        if response.status_code != 200:
-            return
-        if not self.yahoo_finance_analysis:
-            return
-        result = response.text
-        success = self.yahoo_finance_analysis.parse_analyst_five_year_growth_rate(result)
-        if not success:
-            self.yahoo_finance_analysis = None
-
-    def fetch_zacks_analysis(self) -> None:
-        """Start the asynchronous Zacks analyst analysis fetch."""
-
-        session = self._create_session()
-        self.zacks_analysis = Zacks(self.ticker_symbol)
-
-        rpc = session.get(
-            self.zacks_analysis.url,
-            allow_redirects=True,
-            hooks={"response": self.zacks_analysis.parse},
-        )
-        self.rpcs.append(rpc)
-
-    def parse_growth_rate_estimate(self, response: Response, *args: Any, **kwargs: Any) -> None:
-        """Parse supplemental Zacks growth rate data."""
-
-        if response.status_code != 200:
-            return
-        if not self.zacks_analysis:
-            return
-        result = response.text
-        success = self.zacks_analysis.parse_analyst_five_year_growth_rate(result)
-        if not success:
-            self.zacks_analysis = None
-
-    def fetch_yahoo_finance_chart(self) -> None:
-        """Start the asynchronous Yahoo Finance chart fetch."""
-
-        self.yahoo_finance_chart = YahooFinanceChart(self.ticker_symbol)
-        session = self._create_session()
-        rpc = session.get(
-            self.yahoo_finance_chart.url,
-            allow_redirects=True,
-            hooks={"response": self.parse_yahoo_finance_chart},
-        )
-        self.rpcs.append(rpc)
-
-    def parse_yahoo_finance_chart(self, response: Response, *args: Any, **kwargs: Any) -> None:
-        """Parse the historical price chart data from Yahoo Finance."""
-
-        if response.status_code != 200:
-            return
-        if not self.yahoo_finance_chart:
-            return
-        result = response.text
-        success = self.yahoo_finance_chart.parse_chart(result)
-        if not success:
-            self.yahoo_finance_chart = None
+    def close(self) -> None:  # retained for API compatibility
+        return None
 
 
 fetchDataForTickerSymbol = fetch_data_for_ticker_symbol
