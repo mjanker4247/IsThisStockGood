@@ -1,0 +1,23 @@
+{
+  "info": {
+    "longName": "Microsoft Corporation",
+    "longBusinessSummary": "Microsoft Corporation provides software, services, devices, and solutions worldwide.",
+    "industry": "Software",
+    "regularMarketPrice": 330.12,
+    "averageDailyVolume3Month": 25000000,
+    "marketCap": 2450000000000,
+    "sharesOutstanding": 7500000000
+  },
+  "fast_info": {
+    "last_price": 330.12,
+    "market_cap": 2450000000000
+  },
+  "history": [
+    {"date": "2018-12-31", "close": 110.0},
+    {"date": "2019-12-31", "close": 157.0},
+    {"date": "2020-12-31", "close": 222.0},
+    {"date": "2021-12-31", "close": 295.0},
+    {"date": "2022-12-30", "close": 310.0},
+    {"date": "2023-12-29", "close": 360.0}
+  ]
+}

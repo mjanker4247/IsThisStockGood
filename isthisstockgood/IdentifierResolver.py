@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import logging
+import json
 import re
 from dataclasses import dataclass
 from typing import Optional
+from urllib import parse as urlparse, request as urlrequest
 
-import requests
+try:  # pragma: no cover - optional dependency used in production
+  import requests  # type: ignore
+except Exception:  # pragma: no cover - fallback to urllib for offline tests
+  class _RequestsFallback:
+    def get(self, *args, **kwargs):  # pragma: no cover - exercised in tests via monkeypatch
+      raise RuntimeError("requests library is not available")
+
+  requests = _RequestsFallback()  # type: ignore
 
 logger = logging.getLogger("IsThisStockGood")
 
@@ -44,28 +53,41 @@ def _query_yahoo_finance(identifier: str) -> Optional[str]:
     """Attempt to resolve an identifier to a Yahoo Finance ticker symbol."""
 
     try:
-        response = requests.get(
-            _YAHOO_SEARCH_URL,
-            params={"q": identifier, "quotesCount": 6, "newsCount": 0},
-            timeout=10,
-        )
+        if requests is not None:
+            response = requests.get(
+                _YAHOO_SEARCH_URL,
+                params={"q": identifier, "quotesCount": 6, "newsCount": 0},
+                timeout=10,
+            )
+            status_code = response.status_code
+            content = response.json()
+        else:  # pragma: no cover - exercised in offline tests
+            query = urlparse.urlencode({"q": identifier, "quotesCount": 6, "newsCount": 0})
+            url = f"{_YAHOO_SEARCH_URL}?{query}"
+            with urlrequest.urlopen(url, timeout=10) as raw_response:
+                status_code = getattr(raw_response, "status", 200)
+                body = raw_response.read().decode("utf-8")
+            if status_code != 200:
+                logger.warning(
+                    "Yahoo Finance search returned non-success status %s for identifier %s",
+                    status_code,
+                    identifier,
+                )
+                return None
+            content = json.loads(body)
     except Exception:  # pragma: no cover - network errors are logged and ignored.
         logger.exception("Unable to query Yahoo Finance search for identifier %s", identifier)
         return None
 
-    if response.status_code != 200:
+    if status_code != 200:
         logger.warning(
             "Yahoo Finance search returned non-success status %s for identifier %s",
-            response.status_code,
+            status_code,
             identifier,
         )
         return None
 
-    try:
-        payload = response.json()
-    except ValueError:
-        logger.warning("Yahoo Finance search response was not JSON for identifier %s", identifier)
-        return None
+    payload = content
 
     for quote in payload.get("quotes", []):
         symbol = quote.get("symbol")

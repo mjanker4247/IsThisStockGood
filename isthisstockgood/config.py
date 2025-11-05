@@ -120,6 +120,7 @@ class AppConfig:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36",
         )
     )
+    alpha_vantage_api_key: str | None = None
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str]) -> "AppConfig":
@@ -144,6 +145,7 @@ class AppConfig:
         logger_name = environ.get("ISG_LOGGER_NAME", cls.logger_name)
         log_level = _parse_log_level(environ.get("ISG_LOG_LEVEL"), cls.log_level)
         user_agents = _parse_user_agents(environ.get("ISG_USER_AGENTS"), cls().user_agents)
+        alpha_vantage_api_key = environ.get("ISG_ALPHA_VANTAGE_API_KEY") or environ.get("ALPHAVANTAGE_API_KEY")
 
         return cls(
             host=host,
@@ -156,6 +158,7 @@ class AppConfig:
             logger_name=logger_name,
             log_level=log_level,
             user_agents=user_agents,
+            alpha_vantage_api_key=alpha_vantage_api_key,
         )
 
 
