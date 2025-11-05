@@ -3,27 +3,27 @@ name = "IsThisStockGood"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.12,<4.0"
 authors = [
   { name = "Marco Janker and AI" }
 ]
 dependencies = [
-  "wheel>=0.43.0,<0.44.0",
-  "lxml>=5.2.2,<6.0.0",
-  "flask>=3.0.3,<4.0.0",
+  "wheel>=0.43.0",
+  "lxml>=5.2.2",
+  "flask>=3.0.3",
   "pygments>=2.19.2",
   "iniconfig>=2.1.0",
   "pytest>=8.3.5",
   "packaging>=25.0",
-  "numpy>=2.0.2,<3.0.0",
-  "pandas>=2.2.3,<3.0.0",
-  "requests>=2.32.3,<3.0.0",
-  "yfinance>=0.2.52,<0.3.0",
+  "numpy>=2.0.2",
+  "pandas>=2.2.3",
+  "requests>=2.32.3",
+  "yfinance>=0.2.52",
 ]
 
 [dependency-groups]
 dev = [
-  "pytest>=8.2.1,<9.0.0"
+  "pytest>=8.2.1"
 ]
 
 [build-system]
