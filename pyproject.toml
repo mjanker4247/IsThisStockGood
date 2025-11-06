@@ -3,42 +3,20 @@ name = "IsThisStockGood"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
-authors = [
-  { name = "Marco Janker and AI" }
-]
+requires-python = ">=3.9,<4.0"
+authors = [{ name = "Marco Janker and AI" }]
 dependencies = [
   "requests-futures>=1.0.1,<2.0.0",
   "wheel>=0.43.0,<0.44.0",
-  "lxml>=5.2.2,<6.0.0",
   "flask>=3.0.3,<4.0.0",
   "pygments>=2.19.2",
-  "iniconfig>=2.1.0",
   "pytest>=8.3.5",
-  "packaging>=25.0",
+  "yfinance>=0.2.66",
 ]
 
 [dependency-groups]
-dev = [
-  "pytest>=8.2.1,<9.0.0"
-]
-
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-include = ["isthisstockgood*"]
+dev = ["pytest>=8.2.1,<9.0.0"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
-
-[tool.pylint]
-indent-string="  "
-
-[tool.pylint.messages_control]
-disable = [
-  "missing-docstring",
-  "invalid-name",
-]

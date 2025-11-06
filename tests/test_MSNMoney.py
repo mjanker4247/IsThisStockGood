@@ -3,7 +3,7 @@
 
 import unittest
 
-from isthisstockgood.Active.MSNMoney import MSNMoney
+from app.MSNMoney import MSNMoney
 
 class MSNMoneyTest(unittest.TestCase):
 

@@ -2,6 +2,7 @@ import logging
 from datetime import date
 from flask import Flask, request, render_template, json
 from werkzeug.middleware.proxy_fix import ProxyFix
+from app.DataFetcher import fetchDataForTickerSymbol
 
 def get_logger():
     logger = logging.getLogger("IsThisStockGood")
@@ -47,9 +48,6 @@ def create_app(fetchDataForTickerSymbol):
 
     @app.route('/')
     def homepage():
-      if request.environ['HTTP_HOST'].endswith('.appspot.com'):  #Redirect the appspot url to the custom url
-        return '<meta http-equiv="refresh" content="0; url=https://isthisstockgood.com" />'
-
       template_values = {
         'page_title' : "Is This Stock Good?",
         'current_year' : date.today().year,
@@ -58,10 +56,7 @@ def create_app(fetchDataForTickerSymbol):
 
     @app.route('/search', methods=['POST'])
     def search():
-      if request.environ['HTTP_HOST'].endswith('.appspot.com'):  #Redirect the appspot url to the custom url
-        return '<meta http-equiv="refresh" content="0; url=http://isthisstockgood.com" />'
-
-      ticker = request.values.get('ticker')
+      ticker = request.values.get('ticker', verify=False)
       template_values = fetchDataForTickerSymbol(ticker)
       if not template_values:
         return render_template('json/error.json', **{'error' : 'Invalid ticker symbol'})

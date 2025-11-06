@@ -1,5 +1,5 @@
-from isthisstockgood.CompanyInfo import CompanyInfo
-from isthisstockgood.DataFetcher import DataFetcher
+from app.CompanyInfo import CompanyInfo
+from app.DataFetcher import DataFetcher
 
 
 def test_msn_money():

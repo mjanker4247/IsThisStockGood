@@ -3,7 +3,7 @@
 
 import unittest
 
-import isthisstockgood.RuleOneInvestingCalculations as RuleOne
+import app.RuleOneInvestingCalculations as RuleOne
 
 class RuleOneInvestingCalculationsTest(unittest.TestCase):
 

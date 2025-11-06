@@ -1,5 +1,5 @@
-from isthisstockgood.DataFetcher import fetchDataForTickerSymbol
-from isthisstockgood.server import create_app
+from app.DataFetcher import fetchDataForTickerSymbol
+from app.server import create_app
 
 # Expose `app` object at the module level, as expected by App Engine
 app = create_app(fetchDataForTickerSymbol)
