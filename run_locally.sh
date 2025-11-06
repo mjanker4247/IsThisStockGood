@@ -2,4 +2,4 @@
 
 uv sync
 source .venv/bin/activate
-uv run src/main.py
+uv run app/main.py
