@@ -1,8 +1,8 @@
 # DataFetcher.py - Optimized version using yfinance
 
 import logging
-import isthisstockgood.RuleOneInvestingCalculations as RuleOne
-from isthisstockgood.YFinanceData import YFinanceData
+import app.RuleOneInvestingCalculations as RuleOne
+from app.YFinanceData import YFinanceData
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 

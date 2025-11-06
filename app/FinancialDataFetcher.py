@@ -13,8 +13,7 @@ class FinancialDataFetcher:
     def __init__(self, ticker_symbol):
         self.ticker_symbol = ticker_symbol.upper()
         self.yf_ticker = yf.Ticker(self.ticker_symbol)
-        self.five_year_growth_rate_yahoo = None
-        self.five_year_growth_rate_zacks = None
+        self.five_year_growth_rate = None
 
     def fetch_summary_data(self):
         """
@@ -50,35 +49,7 @@ class FinancialDataFetcher:
             'earnings': earnings
         }
 
-    def fetch_five_year_growth_rate_yahoo(self):
-        """
-        Scrapes Yahoo Finance analyst 5 year growth rate (per annum) from analysis page.
-        Uses BeautifulSoup instead of lxml for parsing.
-        """
-        url = f"https://finance.yahoo.com/quote/{self.ticker_symbol}/analysis?p={self.ticker_symbol}"
-        response = requests.get(url)
-        if response.status_code != 200:
-            return None
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-        # Find the table row or similar element that contains 'Next 5 Years (per annum)'
-        # and then extract the following sibling or corresponding data
-        text_elements = soup.find_all(text=re.compile("Next 5 Years \\(per annum\\)"))
-        for element in text_elements:
-            # Navigate parent or siblings to find the percentage value
-            parent = element.parent
-            if parent:
-                # Often data is in a sibling td or span
-                next_sibling = parent.find_next_sibling()
-                if next_sibling:
-                    text = next_sibling.get_text(strip=True)
-                    if re.match(r"\d+(\.\d+)?%", text):
-                        self.five_year_growth_rate_yahoo = float(text.rstrip('%'))
-                        return self.five_year_growth_rate_yahoo
-
-        return None
-
-    def fetch_five_year_growth_rate_zacks(self):
+    def fetch_five_year_growth_rate(self):
         """
         Scrapes Zacks website for analyst 5 year growth rate.
         Uses BeautifulSoup for parsing.
@@ -96,8 +67,8 @@ class FinancialDataFetcher:
                     estimate = lines[i + 1]
                     match = re.search(r"(\d+\.?\d*)", estimate)
                     if match:
-                        self.five_year_growth_rate_zacks = float(match.group(1))
-                        return self.five_year_growth_rate_zacks
+                        self.five_year_growth_rate = float(match.group(1))
+                        return self.five_year_growth_rate
         return None
 
     def fetch_all(self):
@@ -105,6 +76,5 @@ class FinancialDataFetcher:
         Convenience method to fetch all relevant data
         """
         data = self.fetch_summary_data()
-        data['five_year_growth_rate_yahoo'] = self.fetch_five_year_growth_rate_yahoo()
-        data['five_year_growth_rate_zacks'] = self.fetch_five_year_growth_rate_zacks()
+        data['five_year_growth_rate'] = self.fetch_five_year_growth_rate()
         return data

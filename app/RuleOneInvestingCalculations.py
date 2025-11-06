@@ -2,7 +2,6 @@
 
 from __future__ import division
 import math
-#import numpy as np
 
 
 def compound_annual_growth_rate(start_balance, end_balance, years):

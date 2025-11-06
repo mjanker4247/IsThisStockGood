@@ -1,5 +1,8 @@
 # YFinanceData.py - Replaces MSNMoney.py, YahooFinance.py, Zacks.py, and YahooFinanceChart.py
 
+import re
+from bs4 import BeautifulSoup
+import requests
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
@@ -85,6 +88,28 @@ class YFinanceData:
         except Exception as e:
             logger.error(f"Error fetching data for {self.ticker_symbol}: {str(e)}")
             return False
+    
+    def fetch_five_year_growth_rate(self):
+        """
+        Scrapes Zacks website for analyst 5 year growth rate.
+        Uses BeautifulSoup for parsing.
+        """
+        url = f"https://www.zacks.com/stock/quote/{self.ticker_symbol}/detailed-earning-estimates"
+        response = requests.get(url)
+        if response.status_code != 200 or not response.text:
+            return None
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        lines = soup.get_text("\n").split("\n")
+        for i, line in enumerate(lines):
+            if "Next 5 Years" in line:
+                if i + 1 < len(lines):
+                    estimate = lines[i + 1]
+                    match = re.search(r"(\d+\.?\d*)", estimate)
+                    if match:
+                        self.five_year_growth_rate = float(match.group(1))
+                        return self.five_year_growth_rate
+        return None
     
     def _fetch_info(self):
         """Fetch basic company information and current metrics."""
