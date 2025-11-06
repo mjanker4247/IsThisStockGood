@@ -1,4 +1,5 @@
 #!env bash
-uv sync
-uv run main.py
 
+uv sync
+source .venv/bin/activate
+uv run main.py
