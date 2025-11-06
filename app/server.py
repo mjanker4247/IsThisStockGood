@@ -56,7 +56,7 @@ def create_app(fetchDataForTickerSymbol):
 
     @app.route('/search', methods=['POST'])
     def search():
-      ticker = request.values.get('ticker', verify=False)
+      ticker = request.values.get('ticker')
       template_values = fetchDataForTickerSymbol(ticker)
       if not template_values:
         return render_template('json/error.json', **{'error' : 'Invalid ticker symbol'})

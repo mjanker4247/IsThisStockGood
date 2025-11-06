@@ -56,7 +56,7 @@ class FinancialDataFetcher:
         Uses BeautifulSoup instead of lxml for parsing.
         """
         url = f"https://finance.yahoo.com/quote/{self.ticker_symbol}/analysis?p={self.ticker_symbol}"
-        response = requests.get(url, verify=False)
+        response = requests.get(url)
         if response.status_code != 200:
             return None
 
@@ -84,7 +84,7 @@ class FinancialDataFetcher:
         Uses BeautifulSoup for parsing.
         """
         url = f"https://www.zacks.com/stock/quote/{self.ticker_symbol}/detailed-earning-estimates"
-        response = requests.get(url, verify=False)
+        response = requests.get(url)
         if response.status_code != 200 or not response.text:
             return None
 
