@@ -1,5 +1,5 @@
-#!/bin/bash
+#!env bash
 
-virtualenv flask
-source flask/Scripts/activate
-python3 main.py
+uv sync
+source .venv/bin/activate
+uv run main.py
